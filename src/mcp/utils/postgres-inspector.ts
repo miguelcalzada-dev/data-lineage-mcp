@@ -1,4 +1,4 @@
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -78,8 +78,8 @@ export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Pro
 }
 
 async function query<T>(client: PoolClient, sql: string, params?: unknown[]): Promise<T[]> {
-  const result: QueryResult<T> = await client.query(sql, params);
-  return result.rows;
+  const result = await client.query(sql, params as any[]);
+  return result.rows as T[];
 }
 
 export async function getTables(client: PoolClient): Promise<TableInfo[]> {
