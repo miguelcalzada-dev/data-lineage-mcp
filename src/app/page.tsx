@@ -8,11 +8,12 @@ import { McpLiveInspector } from '@/components/mcp-live-inspector';
 import { SchemaSelector } from '@/components/schema-selector';
 import type { AnalyzeResponse, AnalyzeStep } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
+import type { DdlImpact } from '@/mcp/utils/postgres-inspector';
 
 export default function HomePage(): JSX.Element {
   const [ddlStatement, setDdlStatement] = useState<string>('');
   const [graph, setGraph] = useState<GraphDefinition | null>(null);
-  const [impact, setImpact] = useState<unknown | null>(null);
+  const [impact, setImpact] = useState<DdlImpact | null>(null);
   const [steps, setSteps] = useState<AnalyzeStep[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,17 +140,17 @@ export default function HomePage(): JSX.Element {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Dependency Graph
             </h2>
-            {impact && typeof impact === 'object' && impact !== null && 'risk' in impact && (
+            {impact && (
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  (impact as { risk: string }).risk === 'HIGH'
+                  impact.risk === 'HIGH'
                     ? 'bg-red-50 text-red-700'
-                    : (impact as { risk: string }).risk === 'MEDIUM'
+                    : impact.risk === 'MEDIUM'
                     ? 'bg-amber-50 text-amber-700'
                     : 'bg-emerald-50 text-emerald-700'
                 }`}
               >
-                {(impact as { risk: string }).risk} RISK
+                {impact.risk} RISK
               </span>
             )}
           </div>
