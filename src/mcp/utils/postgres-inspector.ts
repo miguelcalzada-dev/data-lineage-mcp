@@ -1,15 +1,24 @@
 import { Pool, PoolClient } from 'pg';
 
-const connectionString = process.env.DATABASE_URL;
+let pool: Pool | null = null;
 
-if (!connectionString) {
-  throw new Error('Missing DATABASE_URL environment variable');
+function getPool(): Pool {
+  if (pool) {
+    return pool;
+  }
+
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('Missing DATABASE_URL environment variable');
+  }
+
+  pool = new Pool({
+    connectionString,
+    ssl: connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
+  });
+
+  return pool;
 }
-
-const pool = new Pool({
-  connectionString,
-  ssl: connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
-});
 
 export interface ColumnInfo {
   table_schema: string;
@@ -69,7 +78,7 @@ export interface SchemaMetadata {
 }
 
 export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     return await fn(client);
   } finally {
