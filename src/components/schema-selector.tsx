@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
-import type { SchemaMetadata, TableInfo, ColumnInfo } from '@/mcp/utils/postgres-inspector';
+import type { SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 export interface SchemaSelectorProps {
   onSelect: (table: string, column: string) => void;
