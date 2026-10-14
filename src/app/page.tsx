@@ -11,8 +11,6 @@ import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 
 export default function HomePage(): JSX.Element {
   const [ddlStatement, setDdlStatement] = useState<string>('');
-  const [selectedTable, setSelectedTable] = useState<string>('');
-  const [selectedColumn, setSelectedColumn] = useState<string>('');
   const [graph, setGraph] = useState<GraphDefinition | null>(null);
   const [impact, setImpact] = useState<unknown | null>(null);
   const [steps, setSteps] = useState<AnalyzeStep[]>([]);
@@ -69,8 +67,6 @@ export default function HomePage(): JSX.Element {
 
   const handleTraceLineage = useCallback(
     (table: string, column: string): void => {
-      setSelectedTable(table);
-      setSelectedColumn(column);
       void runAnalysis({ table, column });
     },
     [runAnalysis]
