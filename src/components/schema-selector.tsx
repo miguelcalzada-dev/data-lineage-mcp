@@ -7,19 +7,27 @@ import type { SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 export interface SchemaSelectorProps {
   onSelect: (table: string, column: string) => void;
+  schema?: SchemaMetadata | null;
 }
 
-export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
-  const [schema, setSchema] = useState<SchemaMetadata | null>(null);
+export function SchemaSelector({ onSelect, schema: externalSchema = null }: SchemaSelectorProps): JSX.Element {
+  const [schema, setSchema] = useState<SchemaMetadata | null>(externalSchema);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
   const [selectedColumn, setSelectedColumn] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(!externalSchema);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (externalSchema) {
+      setSchema(externalSchema);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadSchema(): Promise<void> {
+      setLoading(true);
       try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
@@ -28,11 +36,8 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
         });
         const data = (await response.json()) as AnalyzeResponse & { error?: string };
         if (!cancelled) {
-          if (data.error) {
-            setError(data.error);
-          } else if (data.schema) {
-            setSchema(data.schema as SchemaMetadata);
-          }
+          if (data.error) setError(data.error);
+          else if (data.schema) setSchema(data.schema);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -45,7 +50,7 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [externalSchema]);
 
   const selectedTable = schema?.tables.find((t) => `${t.schema}.${t.name}` === selectedTableId);
 
@@ -74,7 +79,7 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
         <select
           value={selectedTableId}
           onChange={(e) => handleTableChange(e.target.value)}
-          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:border-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-400"
+          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
         >
           <option value="">Selecciona una tabla</option>
           {schema?.tables.map((table) => (
@@ -91,7 +96,7 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
           value={selectedColumn}
           onChange={(e) => setSelectedColumn(e.target.value)}
           disabled={!selectedTable}
-          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 disabled:bg-stone-50 disabled:text-stone-400 focus:border-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-400"
+          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 disabled:bg-stone-50 disabled:text-stone-400 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
         >
           <option value="">Selecciona una columna</option>
           {selectedTable?.columns.map((column) => (

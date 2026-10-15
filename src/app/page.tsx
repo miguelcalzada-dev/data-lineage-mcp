@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
@@ -10,8 +10,9 @@ import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
-import type { DdlImpact, LineageNode } from '@/mcp/utils/postgres-inspector';
+import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import type { GraphMode } from '@/components/impact-graph';
+import { isValidSchema } from '@/mcp/utils/schema-analyzer';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -30,13 +31,50 @@ export default function HomePage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [graphMode, setGraphMode] = useState<GraphMode>('impact');
+  const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('dlia:customSchema');
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (isValidSchema(parsed)) setCustomSchema(parsed);
+      }
+    } catch {
+      // ignora un JSON inválido guardado
+    }
+  }, []);
+
+  const handleLoadSchema = useCallback((loaded: SchemaMetadata): void => {
+    setCustomSchema(loaded);
+    setImpact(null);
+    setGraph(null);
+    try {
+      window.localStorage.setItem('dlia:customSchema', JSON.stringify(loaded));
+    } catch {
+      // ignora errores de almacenamiento
+    }
+  }, []);
+
+  const handleClearSchema = useCallback((): void => {
+    setCustomSchema(null);
+    try {
+      window.localStorage.removeItem('dlia:customSchema');
+    } catch {
+      // ignora errores de almacenamiento
+    }
+  }, []);
 
   const loadSchemaGraph = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/schema-graph');
+      const response = await fetch('/api/schema-graph', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schema: customSchema ?? undefined }),
+      });
       const data = (await response.json()) as GraphDefinition & { error?: string };
       if (!response.ok || data.error) {
         throw new Error(data.error ?? 'No se pudo cargar el esquema');
@@ -49,7 +87,7 @@ export default function HomePage(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [customSchema]);
 
   const handleTraceLineage = useCallback(async (table: string, column: string): Promise<void> => {
     setLoading(true);
@@ -59,7 +97,7 @@ export default function HomePage(): JSX.Element {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableName: table, columnName: column }),
+        body: JSON.stringify({ tableName: table, columnName: column, schema: customSchema ?? undefined }),
       });
 
       const data = (await response.json()) as AnalyzeResponse & { error?: string };
@@ -94,7 +132,7 @@ export default function HomePage(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [customSchema]);
 
   const handleChatResult = useCallback(
     (newGraph: GraphDefinition | null, newImpact: DdlImpact | null): void => {
@@ -132,9 +170,13 @@ export default function HomePage(): JSX.Element {
 
         <div className="min-h-0 flex-1">
           {tab === 'chat' ? (
-            <ChatPanel onResult={handleChatResult} />
+            <ChatPanel onResult={handleChatResult} schema={customSchema} />
           ) : (
-            <DatabaseExplorer />
+            <DatabaseExplorer
+              schema={customSchema}
+              onLoadSchema={handleLoadSchema}
+              onClearSchema={handleClearSchema}
+            />
           )}
         </div>
 
@@ -143,7 +185,7 @@ export default function HomePage(): JSX.Element {
             <p className="mb-3 text-xs leading-relaxed text-stone-500">
               Elige una tabla y columna para ver qué la usa.
             </p>
-            <SchemaSelector onSelect={handleTraceLineage} />
+            <SchemaSelector onSelect={handleTraceLineage} schema={customSchema} />
           </div>
         </Accordion>
       </aside>

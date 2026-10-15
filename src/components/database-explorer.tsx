@@ -1,18 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Table2, Eye, ChevronDown, Search, Database } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Table2, Eye, ChevronDown, Search, Upload, Undo2 } from 'lucide-react';
 import type { SchemaMetadata, TableInfo } from '@/mcp/utils/postgres-inspector';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
+import { isValidSchema } from '@/mcp/utils/schema-analyzer';
 
-export function DatabaseExplorer(): JSX.Element {
-  const [schema, setSchema] = useState<SchemaMetadata | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+export interface DatabaseExplorerProps {
+  schema?: SchemaMetadata | null;
+  onLoadSchema: (schema: SchemaMetadata) => void;
+  onClearSchema: () => void;
+}
+
+export function DatabaseExplorer({
+  schema = null,
+  onLoadSchema,
+  onClearSchema,
+}: DatabaseExplorerProps): JSX.Element {
+  const [remote, setRemote] = useState<SchemaMetadata | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (schema) return;
     let cancelled = false;
+    setLoading(true);
 
     async function load(): Promise<void> {
       try {
@@ -23,11 +37,8 @@ export function DatabaseExplorer(): JSX.Element {
         });
         const data = (await response.json()) as AnalyzeResponse & { error?: string };
         if (!cancelled) {
-          if (data.error) {
-            setError(data.error);
-          } else if (data.schema) {
-            setSchema(data.schema as SchemaMetadata);
-          }
+          if (data.error) setError(data.error);
+          else if (data.schema) setRemote(data.schema);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -40,14 +51,36 @@ export function DatabaseExplorer(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [schema]);
 
+  function handleFile(event: React.ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as unknown;
+        if (!isValidSchema(parsed)) {
+          setError('El JSON no tiene el formato de esquema esperado.');
+          return;
+        }
+        setError(null);
+        onLoadSchema(parsed);
+      } catch {
+        setError('No se pudo leer el archivo JSON.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  const effective = schema ?? remote;
   const term = search.trim().toLowerCase();
-  const tables = (schema?.tables ?? []).filter((t) => !term || t.name.toLowerCase().includes(term));
+  const tables = (effective?.tables ?? []).filter((t) => !term || t.name.toLowerCase().includes(term));
 
   return (
     <div className="flex h-full flex-col">
-      <div className="p-3">
+      <div className="space-y-2 p-3">
         <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
           <Search className="h-4 w-4 text-stone-400" />
           <input
@@ -57,13 +90,38 @@ export function DatabaseExplorer(): JSX.Element {
             className="w-full bg-transparent text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none"
           />
         </div>
+
+        <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={handleFile} />
+
+        {schema ? (
+          <div className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-3 py-2">
+            <span className="text-xs font-medium text-orange-800">Base de datos personalizada</span>
+            <button
+              type="button"
+              onClick={onClearSchema}
+              className="flex items-center gap-1 text-[11px] font-medium text-orange-700 hover:underline"
+            >
+              <Undo2 className="h-3 w-3" />
+              Volver a la predeterminada
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Cargar mi base de datos (JSON)
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-3">
         {loading && <div className="px-1 text-sm text-stone-500">Cargando esquema…</div>}
         {error && <div className="px-1 text-sm text-red-600">{error}</div>}
 
-        {schema && (
+        {effective && (
           <div className="space-y-1">
             <p className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
               {tables.length} objetos
@@ -119,8 +177,4 @@ function TableRow({ table }: { table: TableInfo }): JSX.Element {
       </div>
     </details>
   );
-}
-
-export function DatabaseIcon(): JSX.Element {
-  return <Database className="h-4 w-4" />;
 }

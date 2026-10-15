@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { predictImpactTool } from '@/mcp/tools/predict-impact';
-import { traceLineageTool } from '@/mcp/tools/trace-lineage';
+import { predictBreakingChanges, traceColumnLineage, getFullSchema } from '@/mcp/utils/postgres-inspector';
 import { generateGraphTool, type GraphDefinition } from '@/mcp/tools/generate-graph';
-import { getSchemaTool } from '@/mcp/tools/get-schema';
-import type { LineageNode, DdlImpact } from '@/mcp/utils/postgres-inspector';
+import { isValidSchema } from '@/mcp/utils/schema-analyzer';
+import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 export interface AnalyzeRequest {
   ddlStatement?: string;
   tableName?: string;
   columnName?: string;
   includeSchema?: boolean;
+  schema?: SchemaMetadata;
 }
 
 export interface AnalyzeStep {
@@ -22,7 +22,7 @@ export interface AnalyzeResponse {
   impact?: DdlImpact;
   lineage?: LineageNode[];
   graph?: GraphDefinition;
-  schema?: unknown;
+  schema?: SchemaMetadata;
   steps: AnalyzeStep[];
 }
 
@@ -31,22 +31,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = (await req.json()) as AnalyzeRequest;
-    const { ddlStatement, tableName, columnName, includeSchema } = body;
+    const { ddlStatement, tableName, columnName, includeSchema, schema } = body;
+    const override = schema && isValidSchema(schema) ? schema : undefined;
 
     let impact: DdlImpact | undefined;
     let lineage: LineageNode[] | undefined;
     let graph: GraphDefinition | undefined;
-    let schema: unknown | undefined;
+    let schemaMetadata: SchemaMetadata | undefined;
 
     if (ddlStatement) {
-      const result = await predictImpactTool.execute({ ddlStatement });
-      impact = JSON.parse(result.content[0].text) as DdlImpact;
+      impact = await predictBreakingChanges(ddlStatement, override);
       steps.push({ tool: 'predict_breaking_changes', input: { ddlStatement }, output: impact });
     }
 
     if (tableName && columnName) {
-      const result = await traceLineageTool.execute({ tableName, columnName });
-      lineage = JSON.parse(result.content[0].text) as LineageNode[];
+      lineage = await traceColumnLineage(tableName, columnName, 'public', override);
       steps.push({ tool: 'trace_column_lineage', input: { tableName, columnName }, output: lineage });
     }
 
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (lineage) {
       const affectedObjectNames = (impact?.affectedObjects ?? []).map((obj) => obj.name);
-
       const result = await generateGraphTool.execute({ lineage, affectedObjectNames });
       graph = JSON.parse(result.content[0].text) as GraphDefinition;
       steps.push({
@@ -67,16 +65,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (includeSchema) {
-      const result = await getSchemaTool.execute({});
-      schema = JSON.parse(result.content[0].text);
-      steps.push({ tool: 'get_schema_metadata', input: {}, output: schema });
+      schemaMetadata = override ?? (await getFullSchema());
+      steps.push({ tool: 'get_schema_metadata', input: {}, output: schemaMetadata });
     }
 
     const response: AnalyzeResponse = {
       impact,
       lineage,
       graph,
-      schema,
+      schema: schemaMetadata,
       steps,
     };
 
@@ -88,9 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 function buildImpactLineage(impact: DdlImpact): LineageNode[] {
-  if (!impact.target) {
-    return [];
-  }
+  if (!impact.target) return [];
 
   const origin: LineageNode = {
     schema: impact.target.schema,
