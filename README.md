@@ -126,7 +126,7 @@ En la pestaña **Base de datos** puedes:
 1. **Exportar (JSON)** — descarga el esquema actual de la base conectada.
 2. **Cargar (JSON)** — sube un esquema propio para analizarlo sin conexión.
 
-El JSON debe seguir la estructura `{ tables, views, routines, foreignKeys, primaryKeys }`. Consulta el botón **"¿Cómo consigo el JSON de mi base de datos?"** dentro de la app para ver un ejemplo completo.
+El JSON debe seguir la estructura `{ tables, views, routines, foreignKeys, primaryKeys }` (con `version` y `indexes` opcionales). Consulta el botón **"¿Cómo consigo el JSON de mi base de datos?"** dentro de la app para ver un ejemplo completo.
 
 ---
 
@@ -138,7 +138,9 @@ src/
 │   ├── api/analyze/route.ts        # orquestador de análisis
 │   ├── api/chat/route.ts           # chat con IA (Groq + tools)
 │   ├── api/schema-graph/route.ts   # grafo del esquema
+│   ├── api/health/route.ts         # estado real de BD y MCP
 │   ├── api/mcp/[...mcp]/route.ts   # proxy MCP (SSE)
+│   ├── error.tsx / global-error.tsx # error boundaries
 │   ├── layout.tsx / page.tsx       # UI principal
 │   └── globals.css
 ├── components/                     # header, chat, grafo, explorador, tabs...
@@ -147,8 +149,9 @@ src/
 │   ├── tools/                      # las 4 herramientas MCP
 │   └── utils/
 │       ├── postgres-inspector.ts   # lectura de PostgreSQL
-│       └── schema-analyzer.ts      # motor de análisis en memoria
-├── lib/                            # supabase, spotlight hook
+│       ├── schema-analyzer.ts      # motor de análisis en memoria
+│       └── schema-contract.ts      # versión del contrato JSON
+├── lib/                            # logger y spotlight hook
 └── supabase/                        # scripts SQL opcionales para Supabase
     ├── reset.sql                    # PASO 1: vacía la base de datos
     └── esquemas.sql                 # PASO 2: crea las 3 bbdd de ejemplo
