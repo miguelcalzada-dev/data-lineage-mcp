@@ -1,9 +1,8 @@
 -- ============================================================
 --  PASO 1 de 2 · RESET
 --  Borra TODO lo que haya en la base de datos:
---    · las tablas/vistas/funciones del esquema public
---      (aquí viven las 3 bbdd: emp_*, tie_*, con_*)
---    · los antiguos esquemas empresa / tienda / concesionario
+--    · los esquemas de ejemplo (empresa, tienda, concesionario)
+--    · todo el contenido del esquema public (la versión antigua)
 --
 --  Ejecútalo PRIMERO en el SQL Editor de Supabase.
 --  Después ejecuta `esquemas.sql` (PASO 2) para crear las 3 bbdd.
