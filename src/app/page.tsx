@@ -17,7 +17,6 @@ import type { GraphMode } from '@/components/impact-graph';
 import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
 import { GradientText } from '@/components/gradient-text';
-import { BorderTrail } from '@/components/border-trail';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -211,7 +210,6 @@ export default function HomePage(): JSX.Element {
                 style={spotlight.overlayStyle}
               />
             )}
-            {!hasStarted && <BorderTrail />}
             <div className={hasStarted ? 'contents' : 'relative z-10'}>
             {hasStarted && (
               <div className="border-b border-stone-200 p-2">
