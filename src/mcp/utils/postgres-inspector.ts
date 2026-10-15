@@ -97,6 +97,7 @@ export interface DdlImpact {
   risk: 'HIGH' | 'MEDIUM' | 'LOW';
   summary: string;
   affectedObjects: AffectedObject[];
+  notFound?: boolean;
   target?: {
     schema: string;
     table: string;

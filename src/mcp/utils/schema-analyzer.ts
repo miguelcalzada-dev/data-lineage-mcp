@@ -1,10 +1,34 @@
 import type {
   SchemaMetadata,
+  TableInfo,
+  ColumnInfo,
   LineageNode,
   DdlImpact,
   AffectedObject,
 } from '@/mcp/utils/postgres-inspector';
 import type { GraphDefinition, GraphNode, GraphEdge } from '@/mcp/tools/generate-graph';
+
+function containsIdentifier(text: string, identifier: string): boolean {
+  if (!identifier) return false;
+  const pattern = new RegExp(`(^|[^a-z0-9_])${identifier}([^a-z0-9_]|$)`);
+  return pattern.test(text);
+}
+
+export function findTableByName(schema: SchemaMetadata, tableName: string): TableInfo | undefined {
+  const lower = tableName.toLowerCase();
+  return schema.tables.find((t) => t.name.toLowerCase() === lower);
+}
+
+export function findColumnByName(
+  schema: SchemaMetadata,
+  tableName: string,
+  columnName: string
+): ColumnInfo | undefined {
+  const table = findTableByName(schema, tableName);
+  if (!table) return undefined;
+  const lower = columnName.toLowerCase();
+  return table.columns.find((c) => c.column_name.toLowerCase() === lower);
+}
 
 export function traceLineage(
   schema: SchemaMetadata,
@@ -15,13 +39,22 @@ export function traceLineage(
   const lowerTable = tableName.toLowerCase();
   const lowerColumn = columnName.toLowerCase();
 
+  const originTable = findTableByName(schema, tableName);
+  const resolvedSchema = schemaName ?? originTable?.schema ?? 'public';
+
   const nodes: LineageNode[] = [
-    { schema: schemaName, table: tableName, column: columnName, kind: 'table', relation: 'origin' },
+    {
+      schema: originTable?.schema ?? resolvedSchema,
+      table: originTable?.name ?? tableName,
+      column: columnName,
+      kind: 'table',
+      relation: 'origin',
+    },
   ];
 
   for (const fk of schema.foreignKeys) {
     if (
-      fk.target_schema === schemaName &&
+      (fk.target_schema === resolvedSchema || fk.target_schema === schemaName) &&
       fk.target_table.toLowerCase() === lowerTable &&
       fk.target_column.toLowerCase() === lowerColumn
     ) {
@@ -37,7 +70,7 @@ export function traceLineage(
 
   for (const view of schema.views) {
     const def = (view.definition ?? '').toLowerCase();
-    if (def.includes(lowerTable) && def.includes(lowerColumn)) {
+    if (containsIdentifier(def, lowerTable) && containsIdentifier(def, lowerColumn)) {
       nodes.push({
         schema: view.schema,
         table: view.name,
@@ -50,7 +83,7 @@ export function traceLineage(
 
   for (const routine of schema.routines) {
     const def = (routine.definition ?? '').toLowerCase();
-    if (def.includes(lowerTable) && def.includes(lowerColumn)) {
+    if (containsIdentifier(def, lowerTable) && containsIdentifier(def, lowerColumn)) {
       nodes.push({
         schema: routine.schema,
         table: routine.name,
@@ -80,28 +113,54 @@ export function predictImpact(schema: SchemaMetadata, ddlStatement: string): Ddl
 
   const { action, tableName, columnName, newColumnName } = parsed;
 
+  const targetTable = findTableByName(schema, tableName);
+  if (!targetTable) {
+    return {
+      risk: 'LOW',
+      summary: `La tabla "${tableName}" no existe en el esquema seleccionado, así que la operación "${action}" no tiene ningún efecto.`,
+      affectedObjects: [],
+      notFound: true,
+      target: { schema: schemaName, table: tableName, column: columnName ?? '*' },
+    };
+  }
+
+  const resolvedSchemaName = targetTable.schema || schemaName;
+
+  if (columnName && (action === 'drop_column' || action === 'alter_column' || action === 'rename_column')) {
+    const targetColumn = findColumnByName(schema, tableName, columnName);
+    if (!targetColumn) {
+      return {
+        risk: 'LOW',
+        summary: `La columna "${columnName}" no existe en la tabla "${targetTable.name}", así que la operación "${action}" no tiene ningún efecto.`,
+        affectedObjects: [],
+        notFound: true,
+        target: { schema: resolvedSchemaName, table: targetTable.name, column: columnName },
+      };
+    }
+  }
+
   if (action === 'drop_column' || action === 'alter_column') {
-    collectColumnDependents(schema, schemaName, tableName, columnName, affectedObjects, '');
+    collectColumnDependents(schema, resolvedSchemaName, targetTable.name, columnName, affectedObjects, '');
   }
 
   if (action === 'drop_table') {
     for (const fk of schema.foreignKeys) {
-      if (fk.target_table.toLowerCase() === tableName.toLowerCase()) {
+      if (fk.target_table.toLowerCase() === targetTable.name.toLowerCase()) {
         affectedObjects.push({
           type: 'foreign_key',
           schema: fk.source_schema,
           name: fk.source_table,
-          detail: `Clave foránea hacia la tabla ${tableName}`,
+          detail: `Clave foránea hacia la tabla ${targetTable.name}`,
         });
       }
     }
     for (const view of schema.views) {
-      if ((view.definition ?? '').toLowerCase().includes(tableName.toLowerCase())) {
+      if (containsIdentifier((view.definition ?? '').toLowerCase(), targetTable.name.toLowerCase())) {
         affectedObjects.push({
           type: 'view',
           schema: view.schema,
           name: view.name,
-          detail: `La vista usa la tabla ${tableName}`,
+          detail: `La vista usa la tabla ${targetTable.name}`,
         });
       }
     }
@@ -110,8 +169,8 @@ export function predictImpact(schema: SchemaMetadata, ddlStatement: string): Ddl
   if (action === 'rename_column') {
     collectColumnDependents(
       schema,
-      schemaName,
-      tableName,
+      resolvedSchemaName,
+      targetTable.name,
       columnName,
       affectedObjects,
       ` (renombrada a ${newColumnName})`
@@ -123,11 +182,11 @@ export function predictImpact(schema: SchemaMetadata, ddlStatement: string): Ddl
 
   return {
     risk,
-    summary: `La operación "${action}" sobre ${tableName}${
+    summary: `La operación "${action}" sobre ${targetTable.name}${
       columnName ? `.${columnName}` : ''
     } afecta a ${affectedObjects.length} objeto(s).`,
     affectedObjects,
-    target: { schema: schemaName, table: tableName, column: columnName ?? '*' },
+    target: { schema: resolvedSchemaName, table: targetTable.name, column: columnName ?? '*' },
   };
 }
 
@@ -143,7 +202,7 @@ function collectColumnDependents(
 
   for (const view of schema.views) {
     const def = (view.definition ?? '').toLowerCase();
-    if (def.includes(tableName.toLowerCase()) && def.includes(columnName.toLowerCase())) {
+    if (containsIdentifier(def, tableName.toLowerCase()) && containsIdentifier(def, columnName.toLowerCase())) {
       affectedObjects.push({
         type: 'view',
         schema: view.schema,
@@ -169,7 +228,7 @@ function collectColumnDependents(
 
   for (const routine of schema.routines) {
     const def = (routine.definition ?? '').toLowerCase();
-    if (def.includes(tableName.toLowerCase()) && def.includes(columnName.toLowerCase())) {
+    if (containsIdentifier(def, tableName.toLowerCase()) && containsIdentifier(def, columnName.toLowerCase())) {
       affectedObjects.push({
         type: 'routine',
         schema: routine.schema,

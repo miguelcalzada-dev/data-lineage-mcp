@@ -49,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       steps.push({ tool: 'trace_column_lineage', input: { tableName, columnName }, output: lineage });
     }
 
-    if (!lineage && impact?.target) {
+    if (!lineage && impact?.target && !impact.notFound) {
       lineage = buildImpactLineage(impact);
     }
 

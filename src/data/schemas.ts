@@ -60,7 +60,7 @@ export interface DatabasePreset {
 }
 
 /* ------------------------------------------------------------------ */
-/* 1. Empresa (coincide exactamente con supabase/seed.sql)             */
+/* 1. Empresa (coincide con el esquema "empresa" de supabase/esquemas.sql) */
 /* ------------------------------------------------------------------ */
 const empresa: DatabasePreset = {
   id: 'empresa',
@@ -293,3 +293,36 @@ const concesionario: DatabasePreset = {
 };
 
 export const DATABASE_PRESETS: DatabasePreset[] = [empresa, tiendaOnline, concesionario];
+
+export function getPresetById(id: string): DatabasePreset | undefined {
+  return DATABASE_PRESETS.find((preset) => preset.id === id);
+}
+
+/**
+ * Genera preguntas de ejemplo a partir de un esquema concreto, para que las
+ * sugerencias siempre apunten a tablas y columnas que existen de verdad.
+ */
+export function buildSchemaSuggestions(schema: SchemaMetadata, maxTables = 6): string[] {
+  const suggestions: string[] = [];
+  const tables = schema.tables.filter((t) => t.type === 'BASE TABLE');
+
+  for (const table of tables.slice(0, 3)) {
+    suggestions.push(`¿Qué se rompe si elimino la tabla ${table.name}?`);
+  }
+
+  for (const table of tables.slice(0, maxTables)) {
+    const column =
+      table.columns.find((c) => c.column_name.toLowerCase().endsWith('_id')) ??
+      table.columns.find((c) => c.column_name.toLowerCase() !== 'id') ??
+      table.columns[0];
+    if (!column) continue;
+    suggestions.push(`¿Qué pasa si borro la columna ${column.column_name} de ${table.name}?`);
+    suggestions.push(`¿Quién depende de la columna ${column.column_name} de ${table.name}?`);
+  }
+
+  suggestions.push('¿Qué tablas hay en la base de datos?');
+  suggestions.push('¿Cuántas vistas hay en el esquema?');
+  suggestions.push('¿Qué tablas tienen claves foráneas?');
+
+  return suggestions;
+}

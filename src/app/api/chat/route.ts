@@ -6,7 +6,13 @@ import { generateGraphTool } from '@/mcp/tools/generate-graph';
 import type { McpTool } from '@/mcp/tools/types';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
-import { traceLineage, predictImpact, isValidSchema } from '@/mcp/utils/schema-analyzer';
+import {
+  traceLineage,
+  predictImpact,
+  isValidSchema,
+  findTableByName,
+  findColumnByName,
+} from '@/mcp/utils/schema-analyzer';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_TOOL_CHARS = 4000;
@@ -124,15 +130,39 @@ async function executeToolCall(call: GroqToolCall, override?: SchemaMetadata): P
         views: override.views.map((v) => v.name),
       });
     } else if (name === 'trace_column_lineage') {
-      const lineage = traceLineage(override, String(args.tableName), String(args.columnName));
-      execution.lineage = lineage;
-      execution.content = JSON.stringify(lineage);
+      const tableName = String(args.tableName);
+      const columnName = String(args.columnName);
+      if (!findTableByName(override, tableName)) {
+        execution.content = JSON.stringify({
+          found: false,
+          message: `La tabla "${tableName}" no existe en el esquema seleccionado.`,
+        });
+      } else if (!findColumnByName(override, tableName, columnName)) {
+        execution.content = JSON.stringify({
+          found: false,
+          message: `La columna "${columnName}" no existe en la tabla "${tableName}".`,
+        });
+      } else {
+        const lineage = traceLineage(override, tableName, columnName);
+        execution.lineage = lineage;
+        execution.content = JSON.stringify(lineage);
+      }
     } else if (name === 'predict_breaking_changes') {
       const impact = predictImpact(override, String(args.ddlStatement));
       execution.impact = impact;
       execution.content = JSON.stringify(impact);
     } else if (name === 'generate_graph_definition') {
-      const result = await generateGraphTool.execute(args);
+      let graphArgs = args;
+      if (!Array.isArray(args.lineage) && typeof args.tableName === 'string' && typeof args.columnName === 'string') {
+        const tableName = String(args.tableName);
+        const columnName = String(args.columnName);
+        if (findTableByName(override, tableName) && findColumnByName(override, tableName, columnName)) {
+          graphArgs = { ...args, lineage: traceLineage(override, tableName, columnName) };
+        } else {
+          graphArgs = { lineage: [] };
+        }
+      }
+      const result = await generateGraphTool.execute(graphArgs);
       execution.content = result.content[0].text;
       try {
         execution.graph = JSON.parse(execution.content) as GraphDefinition;
@@ -228,7 +258,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    if (!graph && (impact?.target || (lineage && lineage.length > 0))) {
+    if (!graph && !impact?.notFound && (impact?.target || (lineage && lineage.length > 0))) {
       const effective = lineage && lineage.length > 0 ? lineage : buildImpactLineage(impact as DdlImpact);
       const affectedNames = (impact?.affectedObjects ?? []).map((o) => o.name);
       try {
@@ -240,7 +270,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     let reply = (assistant?.content ?? '').trim();
-    if (!reply) {
+    if (impact?.notFound) {
+      reply = impact.summary;
+      graph = undefined;
+    } else if (!reply) {
       reply =
         impact && impact.affectedObjects.length > 0
           ? `Este cambio afecta a ${impact.affectedObjects.length} objeto(s). Míralos en el grafo.`

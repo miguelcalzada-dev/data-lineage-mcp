@@ -18,7 +18,7 @@ import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
 import { apiPath } from '@/lib/api';
 import { GradientText } from '@/components/gradient-text';
-import { DATABASE_PRESETS, type DatabasePreset } from '@/data/schemas';
+import { DATABASE_PRESETS, buildSchemaSuggestions, getPresetById, type DatabasePreset } from '@/data/schemas';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -40,7 +40,7 @@ export default function HomePage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [graphMode, setGraphMode] = useState<GraphMode>('impact');
-  const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(null);
+  const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(DATABASE_PRESETS[0].schema);
   const [activePresetId, setActivePresetId] = useState<string>('empresa');
   const [chatSuggestions, setChatSuggestions] = useState<string[]>(DATABASE_PRESETS[0].suggestions);
   const [isCustomSchema, setIsCustomSchema] = useState<boolean>(false);
@@ -51,7 +51,12 @@ export default function HomePage(): JSX.Element {
       const raw = window.localStorage.getItem('dlia:customSchema');
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
-        if (isValidSchema(parsed)) setCustomSchema(parsed);
+        if (isValidSchema(parsed)) {
+          setCustomSchema(parsed);
+          setIsCustomSchema(true);
+          setActivePresetId('custom');
+          setChatSuggestions(buildSchemaSuggestions(parsed));
+        }
       }
     } catch {
       // ignora un JSON inválido guardado
@@ -60,22 +65,15 @@ export default function HomePage(): JSX.Element {
 
   const handleLoadSchema = useCallback((loaded: SchemaMetadata): void => {
     setCustomSchema(loaded);
+    setIsCustomSchema(true);
+    setActivePresetId('custom');
+    setChatSuggestions(buildSchemaSuggestions(loaded));
     setGraph(schemaToGraph(loaded));
     setImpact(null);
     setGraphMode('schema');
     setHasStarted(true);
     try {
       window.localStorage.setItem('dlia:customSchema', JSON.stringify(loaded));
-    } catch {
-      // ignora errores de almacenamiento
-    }
-  }, []);
-
-  const handleClearSchema = useCallback((): void => {
-    setCustomSchema(null);
-    setIsCustomSchema(false);
-    try {
-      window.localStorage.removeItem('dlia:customSchema');
     } catch {
       // ignora errores de almacenamiento
     }
@@ -98,6 +96,16 @@ export default function HomePage(): JSX.Element {
     },
     []
   );
+
+  const handleClearSchema = useCallback((): void => {
+    try {
+      window.localStorage.removeItem('dlia:customSchema');
+    } catch {
+      // ignora errores de almacenamiento
+    }
+    const fallback = getPresetById('empresa') ?? DATABASE_PRESETS[0];
+    if (fallback) handleSelectPreset(fallback);
+  }, [handleSelectPreset]);
 
   const schemaFileRef = useRef<HTMLInputElement>(null);
 
@@ -428,6 +436,18 @@ function Accordion({
 
 function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
   const count = impact.affectedObjects.length;
+
+  if (impact.notFound) {
+    return (
+      <div className="absolute right-4 top-4 z-10 max-w-sm rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-lg dark:border-amber-500/40 dark:bg-amber-500/10">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">No existe</span>
+        </div>
+        <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">{impact.summary}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute right-4 top-4 z-10 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg dark:border-night-700 dark:bg-night-800">

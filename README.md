@@ -136,7 +136,9 @@ src/
 │       ├── postgres-inspector.ts   # lectura de PostgreSQL
 │       └── schema-analyzer.ts      # motor de análisis en memoria
 ├── lib/                            # supabase, spotlight hook
-└── supabase/seed.sql               # esquema de prueba (>8 tablas, FKs, vistas, funciones)
+└── supabase/                        # scripts SQL opcionales para Supabase
+    ├── reset.sql                    # PASO 1: vacía la base de datos
+    └── esquemas.sql                 # PASO 2: crea las 3 bbdd de ejemplo
 ```
 
 ---

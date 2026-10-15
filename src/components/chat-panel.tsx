@@ -99,6 +99,10 @@ export function ChatPanel({
   }, [messages, loading]);
 
   useEffect(() => {
+    setSuggestions(pickSuggestions(pool, 3));
+  }, [pool]);
+
+  useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
