@@ -18,26 +18,22 @@ export function Header(): JSX.Element {
           body: JSON.stringify({ includeSchema: true }),
         });
         if (!cancelled) {
-          setDbStatus(response.ok ? 'connected' : 'error');
+          const healthy = response.ok;
+          setDbStatus(healthy ? 'connected' : 'error');
+          setMcpStatus(healthy ? 'connected' : 'error');
         }
       } catch {
-        if (!cancelled) setDbStatus('error');
+        if (!cancelled) {
+          setDbStatus('error');
+          setMcpStatus('error');
+        }
       }
     }
 
     void checkHealth();
 
-    const eventSource = new EventSource('/api/mcp/sse');
-    eventSource.onopen = () => {
-      if (!cancelled) setMcpStatus('connected');
-    };
-    eventSource.onerror = () => {
-      if (!cancelled) setMcpStatus('error');
-    };
-
     return () => {
       cancelled = true;
-      eventSource.close();
     };
   }, []);
 
@@ -61,7 +57,7 @@ export function Header(): JSX.Element {
         />
         <StatusBadge
           icon={<Server className="h-3 w-3" />}
-          label="MCP SSE"
+          label="MCP Tools"
           status={mcpStatus}
         />
       </div>

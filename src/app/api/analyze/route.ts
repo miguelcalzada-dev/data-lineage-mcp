@@ -50,6 +50,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       steps.push({ tool: 'trace_column_lineage', input: { tableName, columnName }, output: lineage });
     }
 
+    if (!lineage && impact?.target) {
+      lineage = buildImpactLineage(impact);
+    }
+
     if (lineage) {
       const affectedObjectNames = (impact?.affectedObjects ?? []).map((obj) => obj.name);
 
@@ -80,5 +84,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message, steps }, { status: 500 });
+  }
+}
+
+function buildImpactLineage(impact: DdlImpact): LineageNode[] {
+  if (!impact.target) {
+    return [];
+  }
+
+  const origin: LineageNode = {
+    schema: impact.target.schema,
+    table: impact.target.table,
+    column: impact.target.column,
+    kind: 'table',
+    relation: 'origin',
+  };
+
+  const dependents: LineageNode[] = impact.affectedObjects.map((obj) => ({
+    schema: obj.schema,
+    table: obj.name,
+    column: '*',
+    kind: mapAffectedType(obj.type),
+    relation: `affected_${obj.type}`,
+  }));
+
+  return [origin, ...dependents];
+}
+
+function mapAffectedType(type: string): LineageNode['kind'] {
+  switch (type) {
+    case 'view':
+      return 'view';
+    case 'routine':
+      return 'routine';
+    case 'foreign_key':
+      return 'foreign_key';
+    default:
+      return 'table';
   }
 }

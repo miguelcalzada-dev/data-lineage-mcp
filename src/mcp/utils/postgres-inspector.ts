@@ -369,6 +369,11 @@ export interface DdlImpact {
   risk: 'HIGH' | 'MEDIUM' | 'LOW';
   summary: string;
   affectedObjects: AffectedObject[];
+  target?: {
+    schema: string;
+    table: string;
+    column: string;
+  };
 }
 
 export interface AffectedObject {
@@ -485,6 +490,11 @@ export async function predictBreakingChanges(ddlStatement: string): Promise<DdlI
       risk,
       summary: `DDL "${action}" on ${tableName}${columnName ? `.${columnName}` : ''} affects ${affectedObjects.length} object(s).`,
       affectedObjects,
+      target: {
+        schema,
+        table: tableName,
+        column: columnName ?? '*',
+      },
     };
   });
 }
