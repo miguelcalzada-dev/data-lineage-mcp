@@ -6,17 +6,27 @@ import type { SchemaMetadata, TableInfo } from '@/mcp/utils/postgres-inspector';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import { isValidSchema } from '@/mcp/utils/schema-analyzer';
 import { apiPath } from '@/lib/api';
+import { FluidTabs } from '@/components/fluid-tabs';
+import type { DatabasePreset } from '@/data/schemas';
 
 export interface DatabaseExplorerProps {
   schema?: SchemaMetadata | null;
   onLoadSchema: (schema: SchemaMetadata) => void;
   onClearSchema: () => void;
+  presets?: DatabasePreset[];
+  activePresetId?: string;
+  onSelectPreset?: (preset: DatabasePreset) => void;
+  isCustom?: boolean;
 }
 
 export function DatabaseExplorer({
   schema = null,
   onLoadSchema,
   onClearSchema,
+  presets = [],
+  activePresetId = '',
+  onSelectPreset,
+  isCustom = false,
 }: DatabaseExplorerProps): JSX.Element {
   const [remote, setRemote] = useState<SchemaMetadata | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -105,41 +115,54 @@ export function DatabaseExplorer({
           />
         </div>
 
+        {presets.length > 0 && (
+          <FluidTabs
+            active={activePresetId}
+            onChange={(id) => {
+              const preset = presets.find((p) => p.id === id);
+              if (preset && onSelectPreset) onSelectPreset(preset);
+            }}
+            tabs={presets.map((p) => ({ id: p.id, label: p.label }))}
+          />
+        )}
+
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={handleFile} />
 
-        {schema ? (
-          <div className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-3 py-2">
-            <span className="text-xs font-medium text-orange-800">Base de datos personalizada</span>
+        {isCustom && (
+          <div className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 dark:border-orange-500/40 dark:bg-orange-500/15">
+            <span className="text-xs font-medium text-orange-800 dark:text-orange-300">
+              Base de datos personalizada
+            </span>
             <button
               type="button"
               onClick={onClearSchema}
-              className="flex items-center gap-1 text-[11px] font-medium text-orange-700 hover:underline"
+              className="flex items-center gap-1 text-[11px] font-medium text-orange-700 hover:underline dark:text-orange-300"
             >
               <Undo2 className="h-3 w-3" />
-              Volver a la predeterminada
-            </button>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 dark:border-night-700 dark:bg-night-800 dark:text-night-300 dark:hover:bg-night-700"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Cargar (JSON)
-            </button>
-            <button
-              type="button"
-              onClick={exportSchema}
-              disabled={!effective}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-300 dark:border-night-700 dark:bg-night-800 dark:text-night-300 dark:hover:bg-night-700"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Exportar (JSON)
+              Quitar
             </button>
           </div>
         )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 dark:border-night-700 dark:bg-night-800 dark:text-night-300 dark:hover:bg-night-700"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Cargar (JSON)
+          </button>
+          <button
+            type="button"
+            onClick={exportSchema}
+            disabled={!effective}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-300 dark:border-night-700 dark:bg-night-800 dark:text-night-300 dark:hover:bg-night-700"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Exportar (JSON)
+          </button>
+        </div>
 
         <button
           type="button"

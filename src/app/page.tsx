@@ -43,6 +43,7 @@ export default function HomePage(): JSX.Element {
   const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(null);
   const [activePresetId, setActivePresetId] = useState<string>('empresa');
   const [chatSuggestions, setChatSuggestions] = useState<string[]>(DATABASE_PRESETS[0].suggestions);
+  const [isCustomSchema, setIsCustomSchema] = useState<boolean>(false);
   const spotlight = useSpotlight();
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function HomePage(): JSX.Element {
 
   const handleClearSchema = useCallback((): void => {
     setCustomSchema(null);
+    setIsCustomSchema(false);
     try {
       window.localStorage.removeItem('dlia:customSchema');
     } catch {
@@ -83,6 +85,7 @@ export default function HomePage(): JSX.Element {
     (preset: DatabasePreset): void => {
       setActivePresetId(preset.id);
       setChatSuggestions(preset.suggestions);
+      setIsCustomSchema(false);
       setCustomSchema(preset.schema);
       setGraph(schemaToGraph(preset.schema));
       setImpact(null);
@@ -111,6 +114,7 @@ export default function HomePage(): JSX.Element {
             return;
           }
           setError(null);
+          setIsCustomSchema(true);
           handleLoadSchema(parsed);
         } catch {
           setError('No se pudo leer el archivo JSON.');
@@ -281,6 +285,10 @@ export default function HomePage(): JSX.Element {
                   schema={customSchema}
                   onLoadSchema={handleLoadSchema}
                   onClearSchema={handleClearSchema}
+                  presets={DATABASE_PRESETS}
+                  activePresetId={activePresetId}
+                  onSelectPreset={handleSelectPreset}
+                  isCustom={isCustomSchema}
                 />
               ) : (
                 <ChatPanel
@@ -309,21 +317,15 @@ export default function HomePage(): JSX.Element {
 
           {!hasStarted && (
             <div className="flex flex-col items-center gap-3">
-              <div className="flex flex-wrap justify-center gap-2">
-                {DATABASE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(preset)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                      activePresetId === preset.id
-                        ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300'
-                        : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700 dark:border-night-700 dark:bg-night-800 dark:text-night-400 dark:hover:text-night-200'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+              <div className="w-full max-w-md">
+                <FluidTabs
+                  active={activePresetId}
+                  onChange={(id) => {
+                    const preset = DATABASE_PRESETS.find((p) => p.id === id);
+                    if (preset) handleSelectPreset(preset);
+                  }}
+                  tabs={DATABASE_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
+                />
               </div>
               <input
                 ref={schemaFileRef}
