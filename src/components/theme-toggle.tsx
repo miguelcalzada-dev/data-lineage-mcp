@@ -10,20 +10,18 @@ export function ThemeToggle(): JSX.Element {
   const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    const stored = window.localStorage.getItem('theme');
-    const system: Theme = window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-    const initial: Theme = stored === 'light' || stored === 'dark' ? stored : system;
-    setTheme(initial);
-    document.documentElement.classList.toggle('dark', initial === 'dark');
+    setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   }, []);
 
   function toggle(): void {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.classList.toggle('dark', next === 'dark');
-    window.localStorage.setItem('theme', next);
+    try {
+      window.localStorage.setItem('theme', next);
+    } catch {
+      // ignora errores de almacenamiento
+    }
   }
 
   return (

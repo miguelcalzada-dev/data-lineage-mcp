@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Network } from 'lucide-react';
+import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Network, Upload } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
 import { DatabaseExplorer } from '@/components/database-explorer';
@@ -75,6 +75,32 @@ export default function HomePage(): JSX.Element {
       // ignora errores de almacenamiento
     }
   }, []);
+
+  const schemaFileRef = useRef<HTMLInputElement>(null);
+
+  const handleSchemaFile = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>): void => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result)) as unknown;
+          if (!isValidSchema(parsed)) {
+            setError('El JSON no tiene el formato de esquema esperado.');
+            return;
+          }
+          setError(null);
+          handleLoadSchema(parsed);
+        } catch {
+          setError('No se pudo leer el archivo JSON.');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    },
+    [handleLoadSchema]
+  );
 
   const loadSchemaGraph = useCallback(
     async (override?: SchemaMetadata | null): Promise<void> => {
@@ -259,6 +285,26 @@ export default function HomePage(): JSX.Element {
             )}
             </div>
           </div>
+
+          {!hasStarted && (
+            <div className="flex justify-center">
+              <input
+                ref={schemaFileRef}
+                type="file"
+                accept=".json,application/json"
+                hidden
+                onChange={handleSchemaFile}
+              />
+              <button
+                type="button"
+                onClick={() => schemaFileRef.current?.click()}
+                className="flex items-center gap-1.5 text-xs text-stone-400 transition hover:text-stone-600 dark:text-night-500 dark:hover:text-night-300"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                ¿Tienes tu propia base de datos? Cárgala
+              </button>
+            </div>
+          )}
         </motion.div>
 
         {/* Panel derecho: grafo */}

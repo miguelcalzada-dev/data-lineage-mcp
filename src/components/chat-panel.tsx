@@ -89,6 +89,7 @@ export function ChatPanel({
   const [suggestions, setSuggestions] = useState<string[]>(() => pickSuggestions(3));
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -126,11 +127,16 @@ export function ChatPanel({
     setSuggestions(pickSuggestions(3));
     if (isFirst && onStart) onStart();
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(apiPath('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: next, schema }),
+        signal: controller.signal,
       });
       const data = (await res.json()) as {
         reply?: string;
@@ -139,6 +145,8 @@ export function ChatPanel({
         error?: string;
       };
 
+      if (controller.signal.aborted) return;
+
       if (data.error) {
         throw new Error(data.error);
       }
@@ -146,15 +154,22 @@ export function ChatPanel({
       setMessages([...next, { role: 'assistant', content: data.reply ?? 'No obtuve respuesta.' }]);
       onResult(data.graph ?? null, data.impact ?? null);
     } catch (err) {
+      if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) {
+        setLoading(false);
+        abortRef.current = null;
+      }
     }
   }
 
   function clearChat(): void {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setMessages([]);
     setError(null);
+    setLoading(false);
     setSuggestions(pickSuggestions(3));
     onResult(null, null);
   }

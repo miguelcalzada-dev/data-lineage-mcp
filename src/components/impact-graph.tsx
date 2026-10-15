@@ -217,7 +217,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
                 <span>Se rompe (afectado)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white dark:border-night-700 dark:bg-night-800" />
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white dark:border-night-500 dark:bg-night-700" />
                 <span>Sin afectar</span>
               </div>
             </div>
