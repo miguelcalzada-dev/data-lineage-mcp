@@ -109,7 +109,7 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
         className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
       >
         <ChevronRight className="h-4 w-4" />
-        Rastrear linaje
+        Ver dependencias
       </button>
     </div>
   );

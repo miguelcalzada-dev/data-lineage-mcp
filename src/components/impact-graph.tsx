@@ -26,17 +26,17 @@ const nodeTypes = {
 const typeLabel: Record<string, string> = {
   table: 'Tabla',
   view: 'Vista',
-  routine: 'Rutina',
+  routine: 'Función',
   foreign_key: 'Clave foránea',
 };
 
 const edgeLabel: Record<string, string> = {
   origin: 'origen',
   dependent_view: 'vista dependiente',
-  dependent_routine: 'rutina dependiente',
+  dependent_routine: 'función dependiente',
   child_foreign_key: 'clave foránea hija',
   affected_view: 'vista afectada',
-  affected_routine: 'rutina afectada',
+  affected_routine: 'función afectada',
   affected_foreign_key: 'clave foránea afectada',
   affected_table: 'tabla afectada',
   affected_column: 'columna afectada',
@@ -51,7 +51,8 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       graph.nodes.find((n) => !targetIds.has(n.id))?.id ?? graph.nodes[0]?.id;
 
     const dependents = graph.nodes.filter((n) => n.id !== originId);
-    const radius = 260;
+    const horizontalGap = 360;
+    const verticalSpacing = 96;
 
     const flowNodes: Node[] = graph.nodes.map((node) => {
       let position: { x: number; y: number };
@@ -61,11 +62,8 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       } else {
         const index = dependents.findIndex((d) => d.id === node.id);
         const count = Math.max(dependents.length, 1);
-        const angle = (index / count) * 2 * Math.PI - Math.PI / 2;
-        position = {
-          x: Math.round(Math.cos(angle) * radius),
-          y: Math.round(Math.sin(angle) * radius),
-        };
+        const y = (index - (count - 1) / 2) * verticalSpacing;
+        position = { x: horizontalGap, y: Math.round(y) };
       }
 
       return {
@@ -77,6 +75,7 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
           type: node.type,
           affected: node.affected,
           schema: node.schema,
+          isOrigin: node.id === originId,
         },
       };
     });
@@ -86,10 +85,13 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       source: edge.source,
       target: edge.target,
       label: edgeLabel[edge.label ?? ''] ?? edge.label,
+      type: 'smoothstep',
       animated: true,
-      style: { stroke: '#64748b' },
+      style: { stroke: '#94a3b8', strokeWidth: 1.5 },
       labelStyle: { fill: '#64748b', fontSize: 10 },
-      labelBgStyle: { fill: '#ffffff' },
+      labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
+      labelBgPadding: [4, 2] as [number, number],
+      labelBgBorderRadius: 4,
     }));
 
     return { nodes: flowNodes, edges: flowEdges };
@@ -105,10 +107,15 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
 
   if (!graph) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-slate-400">
-        <p className="text-sm font-medium text-slate-500">Sin datos todavía</p>
-        <p className="text-sm">
-          Ejecuta una simulación o rastrea un linaje para visualizar el impacto aquí.
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
+          <Table2 className="h-5 w-5 text-slate-400" />
+        </div>
+        <p className="text-sm font-semibold text-slate-600">Aquí verás el mapa de impacto</p>
+        <p className="max-w-sm text-sm leading-relaxed text-slate-500">
+          Escribe un cambio en el panel de la izquierda y pulsa{' '}
+          <span className="font-medium text-slate-700">«Simular impacto»</span>, o elige una tabla
+          y columna en <span className="font-medium text-slate-700">«Explorar dependencias»</span>.
         </p>
       </div>
     );
@@ -121,7 +128,7 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.4 }}
         nodesDraggable
         nodesConnectable={false}
         minZoom={0.2}
@@ -131,18 +138,29 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       >
         <Background gap={16} size={1} color="#e2e8f0" />
         <Controls />
-        <Panel position="top-left" className="rounded-md border border-slate-200 bg-white/90 p-2 text-[11px] text-slate-600 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-300" />
-            <span>Afectado</span>
-            <span className="mx-1 text-slate-300">|</span>
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-slate-300" />
-            <span>Sin afectar</span>
+        <Panel
+          position="top-left"
+          className="rounded-md border border-slate-200 bg-white/95 p-2.5 text-[11px] text-slate-600 shadow-sm"
+        >
+          <p className="mb-1.5 font-semibold text-slate-700">Leyenda</p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-blue-300 bg-blue-50" />
+              <span>Lo que vas a cambiar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-red-300 bg-red-50" />
+              <span>Se rompe (afectado)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-slate-200 bg-white" />
+              <span>Sin afectar</span>
+            </div>
           </div>
         </Panel>
         <MiniMap
           nodeStrokeWidth={3}
-          nodeColor={(n) => (n.data?.affected ? '#ef4444' : '#94a3b8')}
+          nodeColor={(n) => (n.data?.affected ? '#ef4444' : n.data?.isOrigin ? '#60a5fa' : '#94a3b8')}
           className="rounded-md border border-slate-200"
         />
       </ReactFlow>
@@ -153,37 +171,64 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
 function CustomNode({
   data,
 }: {
-  data: { label: string; type: string; affected?: boolean; schema: string };
+  data: {
+    label: string;
+    type: string;
+    affected?: boolean;
+    schema: string;
+    isOrigin?: boolean;
+  };
 }): JSX.Element {
   const icon =
     data.type === 'view' ? (
-      <Eye className="h-3.5 w-3.5" />
+      <Eye className="h-4 w-4" />
     ) : data.type === 'routine' ? (
-      <FileCode className="h-3.5 w-3.5" />
+      <FileCode className="h-4 w-4" />
     ) : data.type === 'foreign_key' ? (
-      <Link2 className="h-3.5 w-3.5" />
+      <Link2 className="h-4 w-4" />
     ) : (
-      <Table2 className="h-3.5 w-3.5" />
+      <Table2 className="h-4 w-4" />
     );
 
   const borderColor = data.affected
     ? 'border-red-300 bg-red-50'
+    : data.isOrigin
+    ? 'border-blue-300 bg-blue-50'
     : 'border-slate-200 bg-white';
-  const textColor = data.affected ? 'text-red-900' : 'text-slate-700';
+  const textColor = data.affected
+    ? 'text-red-900'
+    : data.isOrigin
+    ? 'text-blue-900'
+    : 'text-slate-700';
+
+  const badge = data.affected
+    ? { text: 'Afectado', cls: 'bg-red-100 text-red-700' }
+    : data.isOrigin
+    ? { text: 'Cambio', cls: 'bg-blue-100 text-blue-700' }
+    : null;
 
   return (
-    <div className={`min-w-[160px] rounded-md border p-2.5 shadow-sm ${borderColor}`}>
-      <Handle type="target" position={Position.Top} className="!bg-slate-400" />
+    <div className={`min-w-[170px] rounded-lg border p-3 shadow-sm ${borderColor}`}>
+      <Handle type="target" position={Position.Left} className="!bg-slate-400" />
       <div className="flex items-center gap-2">
-        <span className={`${textColor}`}>{icon}</span>
-        <div className="min-w-0">
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${borderColor} ${textColor}`}>
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
           <p className={`truncate text-xs font-semibold ${textColor}`}>{data.label}</p>
           <p className="truncate text-[10px] uppercase tracking-wide text-slate-400">
-            {typeLabel[data.type] ?? data.type} · {data.schema}
+            {typeLabel[data.type] ?? data.type}
           </p>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-slate-400" />
+      {badge && (
+        <div className="mt-2">
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
+            {badge.text}
+          </span>
+        </div>
+      )}
+      <Handle type="source" position={Position.Right} className="!bg-slate-400" />
     </div>
   );
 }
