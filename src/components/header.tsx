@@ -43,15 +43,24 @@ export function Header(): JSX.Element {
       : 'bg-stone-300';
 
   return (
-    <div className="pointer-events-none absolute right-4 top-4 z-20 flex items-center gap-3 text-[11px] font-medium text-stone-500">
-      <span className="flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
-        Supabase
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
-        MCP
-      </span>
-    </div>
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-stone-200 bg-white px-4">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-orange-600">
+          <span className="h-2 w-2 rounded-full bg-white" />
+        </span>
+        <span className="text-sm font-semibold tracking-tight text-stone-800">Data Lineage</span>
+      </div>
+
+      <div className="flex items-center gap-3 text-[11px] font-medium text-stone-500">
+        <span className="flex items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
+          Supabase
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
+          MCP
+        </span>
+      </div>
+    </header>
   );
 }

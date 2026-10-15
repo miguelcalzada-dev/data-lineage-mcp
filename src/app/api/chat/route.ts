@@ -5,25 +5,25 @@ import { predictImpactTool } from '@/mcp/tools/predict-impact';
 import { generateGraphTool } from '@/mcp/tools/generate-graph';
 import type { McpTool } from '@/mcp/tools/types';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
-import type { DdlImpact } from '@/mcp/utils/postgres-inspector';
+import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b';
+const MAX_TOOL_CHARS = 4000;
 
-const SYSTEM_PROMPT = `Eres un asistente experto en bases de datos PostgreSQL. Ayudas al usuario a entender el impacto de los cambios que quiere hacer en la base de datos.
+const SYSTEM_PROMPT = `Eres un asistente experto en bases de datos PostgreSQL. Ayudas al usuario a entender el impacto de los cambios que quiere hacer.
 
-Tienes a tu disposición estas herramientas:
-- get_schema_metadata: devuelve las tablas, columnas, claves y vistas de la base de datos.
-- trace_column_lineage: devuelve qué objetos (vistas, funciones, claves foráneas) dependen de una tabla/columna.
-- predict_breaking_changes: analiza una sentencia DDL y predice qué se rompería (riesgo alto/medio/bajo).
-- generate_graph_definition: genera el grafo de dependencias para visualizar el impacto.
+Herramientas disponibles:
+- get_schema_metadata: lista de tablas y vistas.
+- trace_column_lineage: qué objetos dependen de una tabla/columna.
+- predict_breaking_changes: analiza un DDL y predice qué se rompe (riesgo alto/medio/bajo).
+- generate_graph_definition: genera el grafo de dependencias.
 
-Reglas:
-1. Responde SIEMPRE en español, de forma clara y breve.
-2. Cuando el usuario hable de borrar, renombrar o modificar algo, usa "predict_breaking_changes" y explica el resultado en lenguaje natural.
-3. Si conviene mostrar el impacto visualmente, usa "generate_graph_definition".
-4. Si el usuario pregunta qué depende de algo, usa "trace_column_lineage".
-5. No inventes datos: usa siempre las herramientas para consultar la base de datos real.`;
+Reglas de estilo (MUY IMPORTANTE):
+1. Responde SIEMPRE en español.
+2. Sé CONCISO: máximo 3-5 líneas o una lista corta con viñetas. Nada de párrafos largos ni tablas extensas.
+3. Usa viñetas breves, no explicaciones redundantes.
+4. No repitas la pregunta ni des discursos genéricos. Ve directo al resultado.`;
 
 const tools: McpTool[] = [getSchemaTool, traceLineageTool, predictImpactTool, generateGraphTool];
 
@@ -109,6 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     let graph: GraphDefinition | undefined;
     let impact: DdlImpact | undefined;
+    let lineage: LineageNode[] | undefined;
 
     let assistant = await callGroq(apiKey, conversation, true);
 
@@ -141,20 +142,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               impact = undefined;
             }
           }
+          if (name === 'trace_column_lineage') {
+            try {
+              lineage = JSON.parse(content) as LineageNode[];
+            } catch {
+              lineage = undefined;
+            }
+          }
+          if (name === 'get_schema_metadata') {
+            content = summarizeSchema(content);
+          }
         } else {
           content = JSON.stringify({ error: `Herramienta desconocida: ${name}` });
+        }
+
+        if (content.length > MAX_TOOL_CHARS) {
+          content = `${content.slice(0, MAX_TOOL_CHARS)}\n… (resultado recortado)`;
         }
 
         toolMessages.push({ role: 'tool', tool_call_id: call.id, content });
       }
 
-      const finalMessages: GroqMessage[] = [
-        ...conversation,
-        assistant,
-        ...toolMessages,
-      ];
+      assistant = await callGroq(apiKey, [...conversation, assistant, ...toolMessages], false);
+    }
 
-      assistant = await callGroq(apiKey, finalMessages, false);
+    if (!graph && (impact?.target || (lineage && lineage.length > 0))) {
+      const effective = lineage && lineage.length > 0 ? lineage : buildImpactLineage(impact as DdlImpact);
+      const affectedNames = (impact?.affectedObjects ?? []).map((o) => o.name);
+      const gr = await generateGraphTool.execute({
+        lineage: effective,
+        affectedObjectNames: affectedNames,
+      });
+      try {
+        graph = JSON.parse(gr.content[0].text) as GraphDefinition;
+      } catch {
+        graph = undefined;
+      }
     }
 
     return NextResponse.json({
@@ -165,5 +188,52 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+function summarizeSchema(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as SchemaMetadata;
+    return JSON.stringify({
+      tables: (parsed.tables ?? []).map((t) => t.name),
+      views: (parsed.views ?? []).map((v) => v.name),
+    });
+  } catch {
+    return content;
+  }
+}
+
+function buildImpactLineage(impact: DdlImpact): LineageNode[] {
+  if (!impact.target) return [];
+
+  const origin: LineageNode = {
+    schema: impact.target.schema,
+    table: impact.target.table,
+    column: impact.target.column,
+    kind: 'table',
+    relation: 'origin',
+  };
+
+  const dependents: LineageNode[] = impact.affectedObjects.map((obj) => ({
+    schema: obj.schema,
+    table: obj.name,
+    column: '*',
+    kind: mapAffectedType(obj.type),
+    relation: `affected_${obj.type}`,
+  }));
+
+  return [origin, ...dependents];
+}
+
+function mapAffectedType(type: string): LineageNode['kind'] {
+  switch (type) {
+    case 'view':
+      return 'view';
+    case 'routine':
+      return 'routine';
+    case 'foreign_key':
+      return 'foreign_key';
+    default:
+      return 'table';
   }
 }

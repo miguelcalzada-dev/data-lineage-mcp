@@ -63,9 +63,10 @@ export default function HomePage(): JSX.Element {
   );
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-cream text-ink">
+    <div className="flex h-screen flex-col overflow-hidden bg-cream text-ink">
       <Header />
 
+      <div className="flex min-h-0 flex-1">
       {/* Panel izquierdo */}
       <aside className="flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white">
         <div className="flex border-b border-stone-200">
@@ -113,6 +114,7 @@ export default function HomePage(): JSX.Element {
           {impact && <ImpactSummary impact={impact} />}
         </div>
       </main>
+      </div>
     </div>
   );
 }
