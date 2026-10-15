@@ -14,7 +14,7 @@ function getPool(): Pool {
 
   pool = new Pool({
     connectionString,
-    ssl: connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
+    ssl: connectionString.includes('supabase') ? { rejectUnauthorized: false } : undefined,
   });
 
   return pool;
