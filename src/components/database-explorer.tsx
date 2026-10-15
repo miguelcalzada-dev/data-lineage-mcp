@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Table2, Eye, ChevronDown, Search, Upload, Undo2 } from 'lucide-react';
+import { Table2, Eye, ChevronDown, Search, Upload, Undo2, Download } from 'lucide-react';
 import type { SchemaMetadata, TableInfo } from '@/mcp/utils/postgres-inspector';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import { isValidSchema } from '@/mcp/utils/schema-analyzer';
@@ -75,6 +75,18 @@ export function DatabaseExplorer({
   }
 
   const effective = schema ?? remote;
+
+  function exportSchema(): void {
+    if (!effective) return;
+    const blob = new Blob([JSON.stringify(effective, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'esquema-bbdd.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   const term = search.trim().toLowerCase();
   const tables = (effective?.tables ?? []).filter((t) => !term || t.name.toLowerCase().includes(term));
 
@@ -106,14 +118,25 @@ export function DatabaseExplorer({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Cargar mi base de datos (JSON)
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Cargar (JSON)
+            </button>
+            <button
+              type="button"
+              onClick={exportSchema}
+              disabled={!effective}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-300"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Exportar (JSON)
+            </button>
+          </div>
         )}
       </div>
 
