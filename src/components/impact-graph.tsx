@@ -128,7 +128,7 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.4 }}
+        fitViewOptions={{ padding: 0.7 }}
         nodesDraggable
         nodesConnectable={false}
         minZoom={0.2}
