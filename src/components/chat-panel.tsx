@@ -165,10 +165,11 @@ export function ChatPanel({
           <button
             type="button"
             onClick={clearChat}
-            className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-400 transition hover:border-stone-300 hover:text-stone-600 dark:border-night-700 dark:bg-night-800 dark:text-night-400 dark:hover:border-night-600 dark:hover:text-night-200"
+            title="Nueva conversación"
+            aria-label="Nueva conversación"
+            className="group flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-night-500 dark:hover:bg-night-700 dark:hover:text-night-100"
           >
-            <RotateCcw className="h-3 w-3" />
-            Nueva conversación
+            <RotateCcw className="h-[15px] w-[15px] transition-transform duration-500 ease-out group-hover:-rotate-180" />
           </button>
         </div>
       )}
