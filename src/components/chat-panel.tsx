@@ -53,7 +53,7 @@ export function ChatPanel({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 88)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
   async function send(text?: string): Promise<void> {
@@ -186,7 +186,7 @@ export function ChatPanel({
             }}
             rows={1}
             placeholder="Escribe tu pregunta…"
-            className="max-h-[88px] flex-1 resize-none rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-snug text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+            className="max-h-[160px] flex-1 resize-none overflow-y-auto rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-snug text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
           />
           <button
             type="button"

@@ -158,7 +158,7 @@ export default function HomePage(): JSX.Element {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-cream text-ink">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-cream text-ink">
       <Header />
 
       <div
@@ -175,7 +175,7 @@ export default function HomePage(): JSX.Element {
           className={
             hasStarted
               ? 'flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white'
-              : 'w-full max-w-2xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm'
+              : 'w-full max-w-3xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm'
           }
         >
           {hasStarted && (
