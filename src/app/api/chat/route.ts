@@ -8,7 +8,7 @@ import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact } from '@/mcp/utils/postgres-inspector';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b';
 
 const SYSTEM_PROMPT = `Eres un asistente experto en bases de datos PostgreSQL. Ayudas al usuario a entender el impacto de los cambios que quiere hacer en la base de datos.
 

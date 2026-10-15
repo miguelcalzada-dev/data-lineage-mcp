@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useCallback, type ReactNode } from 'react';
-import { CheckCircle2, GitBranch, ChevronDown } from 'lucide-react';
+import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
+import { DatabaseExplorer } from '@/components/database-explorer';
 import { ImpactGraph } from '@/components/impact-graph';
 import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
@@ -19,7 +20,10 @@ const objectTypeLabel: Record<string, string> = {
   column: 'Columna',
 };
 
+type Tab = 'chat' | 'db';
+
 export default function HomePage(): JSX.Element {
+  const [tab, setTab] = useState<Tab>('chat');
   const [graph, setGraph] = useState<GraphDefinition | null>(null);
   const [impact, setImpact] = useState<DdlImpact | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -62,10 +66,29 @@ export default function HomePage(): JSX.Element {
     <div className="relative flex h-screen overflow-hidden bg-cream text-ink">
       <Header />
 
-      {/* Panel izquierdo: chat */}
+      {/* Panel izquierdo */}
       <aside className="flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white">
+        <div className="flex border-b border-stone-200">
+          <TabButton
+            active={tab === 'chat'}
+            onClick={() => setTab('chat')}
+            icon={<MessageSquare className="h-4 w-4" />}
+            label="Chat"
+          />
+          <TabButton
+            active={tab === 'db'}
+            onClick={() => setTab('db')}
+            icon={<Database className="h-4 w-4" />}
+            label="Base de datos"
+          />
+        </div>
+
         <div className="min-h-0 flex-1">
-          <ChatPanel onResult={handleChatResult} />
+          {tab === 'chat' ? (
+            <ChatPanel onResult={handleChatResult} />
+          ) : (
+            <DatabaseExplorer />
+          )}
         </div>
 
         <Accordion title="Explorar dependencias" icon={<GitBranch className="h-4 w-4" />}>
@@ -91,6 +114,33 @@ export default function HomePage(): JSX.Element {
         </div>
       </main>
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label: string;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+        active
+          ? 'border-orange-600 text-stone-900'
+          : 'border-transparent text-stone-500 hover:text-stone-700'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
