@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Sparkles, RotateCcw } from 'lucide-react';
+import { ArrowUp, Network, RotateCcw } from 'lucide-react';
 import { TypingText } from '@/components/typing-text';
 import { Spinner } from '@/components/spinner';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
@@ -178,7 +178,7 @@ export function ChatPanel({
             {!hideTitle && (
               <>
                 <div className="flex items-center gap-2 text-sm font-semibold text-stone-800">
-                  <Sparkles className="h-4 w-4 text-orange-600" />
+                  <Network className="h-4 w-4 text-orange-600" />
                   Pregúntame sobre tu base de datos
                 </div>
                 <p className="text-xs leading-relaxed text-stone-500">
