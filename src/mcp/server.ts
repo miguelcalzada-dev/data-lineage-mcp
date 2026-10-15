@@ -34,7 +34,7 @@ const toolMap = new Map<string, McpTool>(tools.map((tool) => [tool.name, tool]))
 
 const server = new Server(
   {
-    name: 'data-lineage-mcp-server',
+    name: 'impactdb-mcp',
     version: '0.1.0',
   },
   {

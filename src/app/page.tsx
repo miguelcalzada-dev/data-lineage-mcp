@@ -188,8 +188,8 @@ export default function HomePage(): JSX.Element {
               animate={{ opacity: 1, y: 0 }}
               className="text-center"
             >
-              <h1 className="flex items-center justify-center gap-3 text-balance text-center font-sans text-3xl font-semibold tracking-tight">
-                <Network className="h-7 w-7 shrink-0 text-orange-500" />
+              <h1 className="flex items-center justify-center gap-2 text-balance text-center font-sans text-2xl font-semibold tracking-tight md:gap-3 md:text-3xl">
+                <Network className="h-6 w-6 shrink-0 text-orange-500 md:h-7 md:w-7" />
                 <GradientText text="Explora el impacto de tus cambios" />
               </h1>
             </motion.div>
