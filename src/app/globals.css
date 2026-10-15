@@ -14,20 +14,20 @@ body {
 }
 
 .react-flow__node {
-  @apply rounded-md border border-slate-200 bg-white shadow-sm;
+  @apply rounded-lg border border-stone-200 bg-white shadow-sm;
 }
 
 .react-flow__node.selected {
-  @apply ring-2 ring-slate-900;
+  @apply ring-2 ring-stone-700;
 }
 
 .react-flow__edge-path {
-  stroke: #94a3b8;
+  stroke: #a8a29e;
   stroke-width: 1.5;
 }
 
 .react-flow__handle {
-  @apply h-2 w-2 border border-slate-300 bg-slate-50;
+  @apply h-2 w-2 border border-stone-300 bg-stone-100;
 }
 
 /* Custom scrollbar */
@@ -41,9 +41,9 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-300;
+  @apply rounded-full bg-stone-300;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400;
+  @apply bg-stone-400;
 }

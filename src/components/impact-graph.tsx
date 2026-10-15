@@ -51,7 +51,7 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       graph.nodes.find((n) => !targetIds.has(n.id))?.id ?? graph.nodes[0]?.id;
 
     const dependents = graph.nodes.filter((n) => n.id !== originId);
-    const horizontalGap = 360;
+    const horizontalGap = 380;
     const verticalSpacing = 96;
 
     const flowNodes: Node[] = graph.nodes.map((node) => {
@@ -87,10 +87,10 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       label: edgeLabel[edge.label ?? ''] ?? edge.label,
       type: 'smoothstep',
       animated: true,
-      style: { stroke: '#94a3b8', strokeWidth: 1.5 },
-      labelStyle: { fill: '#64748b', fontSize: 10 },
-      labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
-      labelBgPadding: [4, 2] as [number, number],
+      style: { stroke: '#a8a29e', strokeWidth: 1.5 },
+      labelStyle: { fill: '#78716c', fontSize: 10 },
+      labelBgStyle: { fill: '#F0EFEC', fillOpacity: 0.9 },
+      labelBgPadding: [6, 2] as [number, number],
       labelBgBorderRadius: 4,
     }));
 
@@ -99,7 +99,7 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
 
   if (loading && !graph) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center text-sm text-stone-500">
         Analizando dependencias…
       </div>
     );
@@ -108,14 +108,14 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
   if (!graph) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
-          <Table2 className="h-5 w-5 text-slate-400" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-stone-200 bg-white">
+          <Table2 className="h-5 w-5 text-stone-400" />
         </div>
-        <p className="text-sm font-semibold text-slate-600">Aquí verás el mapa de impacto</p>
-        <p className="max-w-sm text-sm leading-relaxed text-slate-500">
+        <p className="text-sm font-semibold text-stone-600">Aquí verás el mapa de impacto</p>
+        <p className="max-w-sm text-sm leading-relaxed text-stone-500">
           Escribe un cambio en el panel de la izquierda y pulsa{' '}
-          <span className="font-medium text-slate-700">«Simular impacto»</span>, o elige una tabla
-          y columna en <span className="font-medium text-slate-700">«Explorar dependencias»</span>.
+          <span className="font-medium text-stone-700">«Simular impacto»</span>, o elige una tabla
+          y columna en <span className="font-medium text-stone-700">«Explorar dependencias»</span>.
         </p>
       </div>
     );
@@ -136,32 +136,32 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
         attributionPosition="bottom-right"
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={16} size={1} color="#e2e8f0" />
+        <Background gap={16} size={1} color="#e7e5e4" />
         <Controls />
         <Panel
           position="top-left"
-          className="rounded-md border border-slate-200 bg-white/95 p-2.5 text-[11px] text-slate-600 shadow-sm"
+          className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm"
         >
-          <p className="mb-1.5 font-semibold text-slate-700">Leyenda</p>
-          <div className="space-y-1">
+          <p className="mb-1.5 font-semibold text-stone-700">Leyenda</p>
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-blue-300 bg-blue-50" />
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100" />
               <span>Lo que vas a cambiar</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-red-300 bg-red-50" />
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100" />
               <span>Se rompe (afectado)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-slate-200 bg-white" />
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white" />
               <span>Sin afectar</span>
             </div>
           </div>
         </Panel>
         <MiniMap
           nodeStrokeWidth={3}
-          nodeColor={(n) => (n.data?.affected ? '#ef4444' : n.data?.isOrigin ? '#60a5fa' : '#94a3b8')}
-          className="rounded-md border border-slate-200"
+          nodeColor={(n) => (n.data?.affected ? '#f97316' : n.data?.isOrigin ? '#78716c' : '#d6d3d1')}
+          className="rounded-lg border border-stone-200"
         />
       </ReactFlow>
     </div>
@@ -191,32 +191,32 @@ function CustomNode({
     );
 
   const borderColor = data.affected
-    ? 'border-red-300 bg-red-50'
+    ? 'border-orange-300 bg-orange-50'
     : data.isOrigin
-    ? 'border-blue-300 bg-blue-50'
-    : 'border-slate-200 bg-white';
+    ? 'border-stone-400 bg-stone-100'
+    : 'border-stone-200 bg-white';
   const textColor = data.affected
-    ? 'text-red-900'
+    ? 'text-orange-900'
     : data.isOrigin
-    ? 'text-blue-900'
-    : 'text-slate-700';
+    ? 'text-stone-900'
+    : 'text-stone-700';
 
   const badge = data.affected
-    ? { text: 'Afectado', cls: 'bg-red-100 text-red-700' }
+    ? { text: 'Afectado', cls: 'bg-orange-100 text-orange-700' }
     : data.isOrigin
-    ? { text: 'Cambio', cls: 'bg-blue-100 text-blue-700' }
+    ? { text: 'Cambio', cls: 'bg-stone-200 text-stone-700' }
     : null;
 
   return (
     <div className={`min-w-[170px] rounded-lg border p-3 shadow-sm ${borderColor}`}>
-      <Handle type="target" position={Position.Left} className="!bg-slate-400" />
+      <Handle type="target" position={Position.Left} className="!bg-stone-400" />
       <div className="flex items-center gap-2">
         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${borderColor} ${textColor}`}>
           {icon}
         </span>
         <div className="min-w-0 flex-1">
           <p className={`truncate text-xs font-semibold ${textColor}`}>{data.label}</p>
-          <p className="truncate text-[10px] uppercase tracking-wide text-slate-400">
+          <p className="truncate text-[10px] uppercase tracking-wide text-stone-400">
             {typeLabel[data.type] ?? data.type}
           </p>
         </div>
@@ -228,7 +228,7 @@ function CustomNode({
           </span>
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="!bg-slate-400" />
+      <Handle type="source" position={Position.Right} className="!bg-stone-400" />
     </div>
   );
 }

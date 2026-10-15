@@ -125,15 +125,15 @@ export default function HomePage(): JSX.Element {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-cream text-ink">
       <Header />
 
-      <main className="flex flex-1 gap-px overflow-hidden border-t border-slate-200 bg-slate-200">
+      <main className="flex flex-1 gap-px overflow-hidden border-t border-stone-200 bg-stone-200">
         {/* Panel izquierdo */}
         <section className="flex w-[380px] flex-col bg-white">
-          <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
-            <Sparkles className="h-4 w-4 text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-800">¿Qué cambio quieres analizar?</h2>
+          <div className="flex items-center gap-2 border-b border-stone-200 px-4 py-3">
+            <Sparkles className="h-4 w-4 text-orange-600" />
+            <h2 className="text-sm font-semibold text-stone-800">¿Qué cambio quieres analizar?</h2>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
@@ -146,12 +146,12 @@ export default function HomePage(): JSX.Element {
 
             <div className="mt-6">
               <div className="mb-2 flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-slate-500" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <ListChecks className="h-4 w-4 text-stone-500" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
                   Ejemplos rápidos
                 </h3>
               </div>
-              <p className="mb-3 text-xs leading-relaxed text-slate-500">
+              <p className="mb-3 text-xs leading-relaxed text-stone-500">
                 Pulsa uno para ver cómo funciona al instante.
               </p>
               <div className="space-y-2">
@@ -169,12 +169,12 @@ export default function HomePage(): JSX.Element {
 
             <div className="mt-6">
               <div className="mb-2 flex items-center gap-2">
-                <GitBranch className="h-4 w-4 text-slate-500" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <GitBranch className="h-4 w-4 text-stone-500" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
                   Explorar dependencias
                 </h3>
               </div>
-              <p className="mb-3 text-xs leading-relaxed text-slate-500">
+              <p className="mb-3 text-xs leading-relaxed text-stone-500">
                 Elige una tabla y una columna para ver quién depende de ella (vistas, funciones o
                 claves foráneas que la usan).
               </p>
@@ -185,8 +185,8 @@ export default function HomePage(): JSX.Element {
 
         {/* Panel central */}
         <section className="flex min-w-0 flex-1 flex-col bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-800">Mapa de impacto</h2>
+          <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-stone-800">Mapa de impacto</h2>
           </div>
 
           {impact && <ImpactSummary impact={impact} />}
@@ -203,8 +203,8 @@ export default function HomePage(): JSX.Element {
 
         {/* Panel derecho */}
         <section className="flex w-[380px] flex-col bg-white">
-          <div className="border-b border-slate-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-800">Inspector MCP en vivo</h2>
+          <div className="border-b border-stone-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-stone-800">Inspector MCP en vivo</h2>
           </div>
           <div className="flex-1 overflow-hidden">
             <McpLiveInspector steps={steps} loading={loading} />
@@ -230,23 +230,23 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
   }
 
   return (
-    <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+    <div className="border-b border-stone-200 bg-stone-50 px-4 py-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-slate-800">Resultado del análisis</span>
+        <span className="text-sm font-semibold text-stone-800">Resultado del análisis</span>
         <RiskBadge level={impact.risk} />
       </div>
-      <p className="mt-1 text-sm text-slate-600">
+      <p className="mt-1 text-sm text-stone-600">
         Este cambio afectará a {count} objeto{count === 1 ? '' : 's'}:
       </p>
       <ul className="mt-2 flex flex-wrap gap-1.5">
         {impact.affectedObjects.map((obj, i) => (
           <li
             key={i}
-            className="flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-2.5 py-0.5 text-xs"
+            className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-white px-2.5 py-0.5 text-xs"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-            <span className="font-medium text-slate-700">{obj.name}</span>
-            <span className="text-slate-400">· {objectTypeLabel[obj.type] ?? obj.type}</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+            <span className="font-medium text-stone-700">{obj.name}</span>
+            <span className="text-stone-400">· {objectTypeLabel[obj.type] ?? obj.type}</span>
           </li>
         ))}
       </ul>
@@ -269,10 +269,10 @@ function QuickPrompt({
     <button
       type="button"
       onClick={() => onClick(ddl)}
-      className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:border-slate-300 hover:bg-slate-100"
+      className="w-full rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-left transition hover:border-stone-300 hover:bg-stone-100"
     >
-      <span className="block text-sm font-medium text-slate-800">{label}</span>
-      <span className="block font-mono text-[11px] text-slate-400">{description}</span>
+      <span className="block text-sm font-medium text-stone-800">{label}</span>
+      <span className="block font-mono text-[11px] text-stone-400">{description}</span>
     </button>
   );
 }

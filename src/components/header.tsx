@@ -38,14 +38,14 @@ export function Header(): JSX.Element {
   }, []);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-stone-200 bg-white px-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-slate-50">
-          <Activity className="h-4 w-4 text-slate-700" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600">
+          <Activity className="h-4 w-4 text-white" />
         </div>
         <div>
-          <h1 className="text-sm font-semibold text-slate-900">Analizador de Linaje e Impacto de Datos</h1>
-          <p className="text-xs text-slate-500">Análisis de impacto en PostgreSQL con MCP</p>
+          <h1 className="text-sm font-semibold text-stone-900">Analizador de Linaje e Impacto de Datos</h1>
+          <p className="text-xs text-stone-500">Análisis de impacto en PostgreSQL con MCP</p>
         </div>
       </div>
 
@@ -75,7 +75,7 @@ function StatusBadge({
   status: 'checking' | 'connected' | 'error';
 }): JSX.Element {
   const statusClasses = {
-    checking: 'bg-slate-100 text-slate-500',
+    checking: 'bg-stone-100 text-stone-500',
     connected: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     error: 'bg-red-50 text-red-700 border-red-200',
   };
