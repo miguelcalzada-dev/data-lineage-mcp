@@ -8,8 +8,16 @@ import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b';
 const MAX_TOOL_CHARS = 4000;
+const MAX_ITERATIONS = 4;
+
+const MODELS: string[] = Array.from(
+  new Set([
+    process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'qwen/qwen3.8-27b',
+  ])
+);
 
 const SYSTEM_PROMPT = `Eres un asistente experto en bases de datos PostgreSQL. Ayudas al usuario a entender el impacto de los cambios que quiere hacer.
 
@@ -22,8 +30,8 @@ Herramientas disponibles:
 Reglas de estilo (MUY IMPORTANTE):
 1. Responde SIEMPRE en español.
 2. Sé CONCISO: máximo 3-5 líneas o una lista corta con viñetas. Nada de párrafos largos ni tablas extensas.
-3. Usa viñetas breves, no explicaciones redundantes.
-4. No repitas la pregunta ni des discursos genéricos. Ve directo al resultado.`;
+3. No repitas la pregunta ni des discursos genéricos. Ve directo al resultado.
+4. Cuando el usuario mencione borrar o modificar algo, usa predict_breaking_changes y resume el resultado.`;
 
 const tools: McpTool[] = [getSchemaTool, traceLineageTool, predictImpactTool, generateGraphTool];
 
@@ -44,35 +52,36 @@ interface ChatRequestBody {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
+interface GroqToolCall {
+  id: string;
+  function: { name: string; arguments: string };
+}
+
 interface GroqMessage {
   role: string;
   content: string | null;
-  tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+  tool_calls?: GroqToolCall[];
   tool_call_id?: string;
 }
 
 async function callGroq(
+  model: string,
   apiKey: string,
-  messages: GroqMessage[],
-  withTools: boolean
+  messages: GroqMessage[]
 ): Promise<GroqMessage> {
-  const body: Record<string, unknown> = {
-    model: MODEL,
-    messages,
-    temperature: 0.2,
-  };
-  if (withTools) {
-    body.tools = toOpenAiTools(tools);
-    body.tool_choice = 'auto';
-  }
-
   const response = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.2,
+      tools: toOpenAiTools(tools),
+      tool_choice: 'auto',
+    }),
   });
 
   if (!response.ok) {
@@ -87,22 +96,94 @@ async function callGroq(
   return data.choices[0].message;
 }
 
+async function callGroqWithFallback(
+  apiKey: string,
+  messages: GroqMessage[]
+): Promise<GroqMessage> {
+  let lastError: unknown = null;
+
+  for (const model of MODELS) {
+    try {
+      return await callGroq(model, apiKey, messages);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('No se pudo contactar con el modelo');
+}
+
+interface ToolExecution {
+  content: string;
+  graph?: GraphDefinition;
+  impact?: DdlImpact;
+  lineage?: LineageNode[];
+}
+
+async function executeToolCall(call: GroqToolCall): Promise<ToolExecution> {
+  const name = call.function.name;
+  const executor = toolExecutors.get(name);
+
+  if (!executor) {
+    return { content: JSON.stringify({ error: `Herramienta desconocida: ${name}` }) };
+  }
+
+  const args = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
+  const result = await executor.execute(args);
+  let content = result.content
+    .map((c) => (c.type === 'text' ? c.text : JSON.stringify(c)))
+    .join('\n');
+
+  const execution: ToolExecution = { content };
+
+  if (name === 'generate_graph_definition') {
+    try {
+      execution.graph = JSON.parse(content) as GraphDefinition;
+    } catch {
+      execution.graph = undefined;
+    }
+  }
+  if (name === 'predict_breaking_changes') {
+    try {
+      execution.impact = JSON.parse(content) as DdlImpact;
+    } catch {
+      execution.impact = undefined;
+    }
+  }
+  if (name === 'trace_column_lineage') {
+    try {
+      execution.lineage = JSON.parse(content) as LineageNode[];
+    } catch {
+      execution.lineage = undefined;
+    }
+  }
+  if (name === 'get_schema_metadata') {
+    content = summarizeSchema(content);
+  }
+
+  if (content.length > MAX_TOOL_CHARS) {
+    content = `${content.slice(0, MAX_TOOL_CHARS)}\n… (resultado recortado)`;
+  }
+
+  execution.content = content;
+  return execution;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'GROQ_API_KEY no está configurada en el servidor.' },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        reply: 'El asistente no está configurado (falta la clave de Groq).',
+      });
     }
 
     const body = (await req.json()) as ChatRequestBody;
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
-      return NextResponse.json({ error: 'No hay mensajes en la conversación.' }, { status: 400 });
+      return NextResponse.json({ reply: 'No he recibido ninguna pregunta.' });
     }
 
-    const conversation: GroqMessage[] = [
+    const messages: GroqMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...body.messages.map((m) => ({ role: m.role, content: m.content })),
     ];
@@ -110,84 +191,53 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let graph: GraphDefinition | undefined;
     let impact: DdlImpact | undefined;
     let lineage: LineageNode[] | undefined;
+    let assistant: GroqMessage | null = null;
 
-    let assistant = await callGroq(apiKey, conversation, true);
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      assistant = await callGroqWithFallback(apiKey, messages);
 
-    if (assistant.tool_calls && assistant.tool_calls.length > 0) {
-      const toolMessages: GroqMessage[] = [];
-
-      for (const call of assistant.tool_calls) {
-        const name = call.function.name;
-        const executor = toolExecutors.get(name);
-        let content: string;
-
-        if (executor) {
-          const args = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
-          const result = await executor.execute(args);
-          content = result.content
-            .map((c) => (c.type === 'text' ? c.text : JSON.stringify(c)))
-            .join('\n');
-
-          if (name === 'generate_graph_definition') {
-            try {
-              graph = JSON.parse(content) as GraphDefinition;
-            } catch {
-              graph = undefined;
-            }
-          }
-          if (name === 'predict_breaking_changes') {
-            try {
-              impact = JSON.parse(content) as DdlImpact;
-            } catch {
-              impact = undefined;
-            }
-          }
-          if (name === 'trace_column_lineage') {
-            try {
-              lineage = JSON.parse(content) as LineageNode[];
-            } catch {
-              lineage = undefined;
-            }
-          }
-          if (name === 'get_schema_metadata') {
-            content = summarizeSchema(content);
-          }
-        } else {
-          content = JSON.stringify({ error: `Herramienta desconocida: ${name}` });
-        }
-
-        if (content.length > MAX_TOOL_CHARS) {
-          content = `${content.slice(0, MAX_TOOL_CHARS)}\n… (resultado recortado)`;
-        }
-
-        toolMessages.push({ role: 'tool', tool_call_id: call.id, content });
+      if (!assistant.tool_calls || assistant.tool_calls.length === 0) {
+        break;
       }
 
-      assistant = await callGroq(apiKey, [...conversation, assistant, ...toolMessages], false);
+      messages.push(assistant);
+
+      for (const call of assistant.tool_calls) {
+        const execution = await executeToolCall(call);
+        if (execution.graph) graph = execution.graph;
+        if (execution.impact) impact = execution.impact;
+        if (execution.lineage) lineage = execution.lineage;
+        messages.push({ role: 'tool', tool_call_id: call.id, content: execution.content });
+      }
     }
 
     if (!graph && (impact?.target || (lineage && lineage.length > 0))) {
       const effective = lineage && lineage.length > 0 ? lineage : buildImpactLineage(impact as DdlImpact);
       const affectedNames = (impact?.affectedObjects ?? []).map((o) => o.name);
-      const gr = await generateGraphTool.execute({
-        lineage: effective,
-        affectedObjectNames: affectedNames,
-      });
       try {
+        const gr = await generateGraphTool.execute({
+          lineage: effective,
+          affectedObjectNames: affectedNames,
+        });
         graph = JSON.parse(gr.content[0].text) as GraphDefinition;
       } catch {
         graph = undefined;
       }
     }
 
+    let reply = (assistant?.content ?? '').trim();
+    if (!reply) {
+      reply =
+        impact && impact.affectedObjects.length > 0
+          ? `Este cambio afecta a ${impact.affectedObjects.length} objeto(s). Míralos en el grafo.`
+          : 'Listo. Consulta el mapa de la derecha para ver el resultado.';
+    }
+
+    return NextResponse.json({ reply, graph, impact });
+  } catch {
     return NextResponse.json({
-      reply: assistant.content ?? '',
-      graph,
-      impact,
+      reply: 'No pude completar la consulta en este momento. Inténtalo de nuevo por favor.',
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

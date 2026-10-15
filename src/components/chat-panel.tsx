@@ -10,11 +10,19 @@ interface ChatMessage {
   content: string;
 }
 
-const SUGGESTIONS = [
+const SUGGESTION_POOL: string[] = [
   '¿Qué pasa si borro la columna customer_id de orders?',
   '¿Quién depende de la columna email de users?',
-  'Muéstrame las tablas de la base de datos',
+  '¿Qué se rompe si elimino la tabla products?',
+  '¿Qué pasa si renombro price en products?',
+  '¿Qué depende de la tabla customers?',
+  '¿Qué pasa si borro product_id de order_items?',
+  '¿Qué se rompe si elimino la tabla orders?',
 ];
+
+function pickSuggestions(count: number): string[] {
+  return [...SUGGESTION_POOL].sort(() => Math.random() - 0.5).slice(0, count);
+}
 
 export interface ChatPanelProps {
   onResult: (graph: GraphDefinition | null, impact: DdlImpact | null) => void;
@@ -25,6 +33,7 @@ export function ChatPanel({ onResult }: ChatPanelProps): JSX.Element {
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>(() => pickSuggestions(3));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,6 +49,7 @@ export function ChatPanel({ onResult }: ChatPanelProps): JSX.Element {
     setInput('');
     setLoading(true);
     setError(null);
+    setSuggestions(pickSuggestions(3));
 
     try {
       const res = await fetch('/api/chat', {
@@ -54,11 +64,14 @@ export function ChatPanel({ onResult }: ChatPanelProps): JSX.Element {
         error?: string;
       };
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error ?? 'Error al responder');
+      if (data.error) {
+        throw new Error(data.error);
       }
 
-      setMessages([...next, { role: 'assistant', content: data.reply ?? '' }]);
+      setMessages([
+        ...next,
+        { role: 'assistant', content: data.reply ?? 'No obtuve respuesta.' },
+      ]);
       onResult(data.graph ?? null, data.impact ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -80,7 +93,7 @@ export function ChatPanel({ onResult }: ChatPanelProps): JSX.Element {
               Escribe en lenguaje natural, por ejemplo:
             </p>
             <div className="space-y-1.5">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -96,12 +109,9 @@ export function ChatPanel({ onResult }: ChatPanelProps): JSX.Element {
 
         <div className="space-y-3">
           {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed ${
+                className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed ${
                   m.role === 'user'
                     ? 'bg-orange-600 text-white'
                     : 'border border-stone-200 bg-white text-stone-700'
