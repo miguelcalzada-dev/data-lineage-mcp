@@ -44,23 +44,107 @@ const edgeLabel: Record<string, string> = {
   affected_column: 'columna afectada',
 };
 
+interface LayoutNode {
+  id: string;
+}
+
+interface LayoutEdge {
+  source: string;
+  target: string;
+}
+
+function computeForceLayout(
+  nodes: LayoutNode[],
+  edges: LayoutEdge[],
+  width = 1100,
+  height = 760
+): Record<string, { x: number; y: number }> {
+  const n = nodes.length;
+  const positions: Record<string, { x: number; y: number }> = {};
+
+  nodes.forEach((node, i) => {
+    const angle = (i / Math.max(n, 1)) * 2 * Math.PI;
+    positions[node.id] = {
+      x: width / 2 + Math.cos(angle) * (width / 3),
+      y: height / 2 + Math.sin(angle) * (height / 3),
+    };
+  });
+
+  if (n <= 1) return positions;
+
+  const k = Math.sqrt((width * height) / n);
+  const iterations = 320;
+  let temperature = width / 8;
+  const cooling = temperature / iterations;
+
+  const disp: Record<string, { x: number; y: number }> = {};
+
+  for (let it = 0; it < iterations; it++) {
+    nodes.forEach((node) => {
+      disp[node.id] = { x: 0, y: 0 };
+    });
+
+    // Repulsión entre todos los nodos
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = positions[nodes[i].id];
+        const b = positions[nodes[j].id];
+        let dx = a.x - b.x;
+        let dy = a.y - b.y;
+        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
+        const force = (k * k) / dist;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        disp[nodes[i].id].x += fx;
+        disp[nodes[i].id].y += fy;
+        disp[nodes[j].id].x -= fx;
+        disp[nodes[j].id].y -= fy;
+      }
+    }
+
+    // Atracción a lo largo de las aristas
+    for (const edge of edges) {
+      const a = positions[edge.source];
+      const b = positions[edge.target];
+      if (!a || !b) continue;
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
+      const force = (dist * dist) / k;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      disp[edge.source].x -= fx;
+      disp[edge.source].y -= fy;
+      disp[edge.target].x += fx;
+      disp[edge.target].y += fy;
+    }
+
+    nodes.forEach((node) => {
+      const d = disp[node.id];
+      const len = Math.max(Math.sqrt(d.x * d.x + d.y * d.y), 0.01);
+      const limited = Math.min(len, temperature);
+      const p = positions[node.id];
+      p.x = Math.max(120, Math.min(width - 120, p.x + (d.x / len) * limited));
+      p.y = Math.max(90, Math.min(height - 90, p.y + (d.y / len) * limited));
+    });
+
+    temperature -= cooling;
+  }
+
+  return positions;
+}
+
 export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactGraphProps): JSX.Element {
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
 
     if (mode === 'schema') {
-      const count = graph.nodes.length;
-      const cols = Math.max(1, Math.ceil(Math.sqrt(Math.max(count, 1) * 1.6)));
-      const colGap = 260;
-      const rowGap = 150;
+      const positions = computeForceLayout(graph.nodes, graph.edges);
 
-      const gridNodes: Node[] = graph.nodes.map((node, index) => ({
+      const gridNodes: Node[] = graph.nodes.map((node) => ({
         id: node.id,
         type: 'custom',
-        position: {
-          x: (index % cols) * colGap,
-          y: Math.floor(index / cols) * rowGap,
-        },
+        position: positions[node.id] ?? { x: 0, y: 0 },
         data: {
           label: node.label,
           type: node.type,
@@ -74,8 +158,8 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        type: 'smoothstep',
-        style: { stroke: '#dcd9d3', strokeWidth: 1.1 },
+        type: 'default',
+        style: { stroke: '#d6d3d1', strokeWidth: 1 },
       }));
 
       return { nodes: gridNodes, edges: gridEdges };
