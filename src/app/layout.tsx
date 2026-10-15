@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Analizador de Linaje e Impacto de Datos',
-  description: 'Predice cambios que rompen la base de datos y visualiza el linaje de datos con MCP.',
+  title: 'ImpactDB-MCP',
+  description: 'Analizador de linaje de datos e impacto de cambios para PostgreSQL con MCP.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {
   return (
     <html lang="en">
-      <body className="font-sans antialiased bg-cream text-ink">
+      <body className="bg-gradient-to-br from-[#F4F0E8] via-[#ECE7DC] to-[#E3DDD0] font-sans antialiased text-ink">
         {children}
       </body>
     </html>

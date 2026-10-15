@@ -226,7 +226,7 @@ function CustomNode({
     : 'text-stone-700';
 
   return (
-    <div className={`box-border w-[190px] rounded-lg border px-3 py-2.5 shadow-sm ${borderColor}`}>
+    <div className={`box-border w-[190px] rounded-lg border px-3 py-2.5 ${borderColor}`}>
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <div className="flex items-center gap-2.5">
         <span

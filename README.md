@@ -1,4 +1,4 @@
-# Data Lineage & Impact Analyzer
+# ImpactDB-MCP
 
 Analizador de **linaje de datos e impacto de cambios** para bases de datos PostgreSQL. Conecta tu base de datos, pregunta en lenguaje natural y descubre qué se rompería antes de aplicar un cambio, visualizándolo en un grafo interactivo.
 

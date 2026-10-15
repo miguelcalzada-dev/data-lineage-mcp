@@ -172,7 +172,7 @@ export function DatabaseExplorer({
           onClick={() => setShowInfo(false)}
         >
           <div
-            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
+            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
@@ -205,7 +205,7 @@ export function DatabaseExplorer({
                   esta estructura y súbelo con{' '}
                   <span className="font-medium">«Cargar (JSON)»</span>:
                 </p>
-                <pre className="mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] leading-relaxed text-stone-600">
+                <pre className="no-scrollbar mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] leading-relaxed text-stone-600">
 {`{
   "tables": [
     {

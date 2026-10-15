@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, RotateCcw } from 'lucide-react';
+import { ArrowUp, Sparkles, RotateCcw } from 'lucide-react';
+import { TypingText } from '@/components/typing-text';
+import { Spinner } from '@/components/spinner';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
@@ -161,24 +163,27 @@ export function ChatPanel({
         )}
 
         <div className="space-y-3">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[85%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                  m.role === 'user'
-                    ? 'bg-orange-600 text-white'
-                    : 'border border-stone-200 bg-white text-stone-700'
-                }`}
-              >
-                {m.content}
+          {messages.map((m, i) => {
+            const isLast = i === messages.length - 1;
+            return (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[85%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${
+                    m.role === 'user'
+                      ? 'bg-orange-600 text-white'
+                      : 'border border-stone-200 bg-white text-stone-700'
+                  }`}
+                >
+                  {m.role === 'assistant' && isLast ? <TypingText text={m.content} /> : m.content}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {loading && (
           <div className="mt-3 flex items-center gap-2 text-xs text-stone-400">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
+            <Spinner />
             Pensando…
           </div>
         )}
@@ -210,9 +215,9 @@ export function ChatPanel({
             type="button"
             onClick={() => void send()}
             disabled={loading || !input.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-600 text-white transition hover:bg-orange-700 disabled:bg-stone-300"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white transition hover:bg-stone-700 disabled:bg-stone-300"
           >
-            <Send className="h-4 w-4" />
+            <ArrowUp className="h-4 w-4" />
           </button>
         </div>
       </div>

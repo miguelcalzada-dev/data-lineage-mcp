@@ -17,10 +17,7 @@ body {
   background: transparent;
   border: none;
   padding: 0;
-}
-
-.react-flow__node.selected {
-  @apply rounded-lg ring-2 ring-stone-400;
+  box-shadow: none;
 }
 
 .react-flow__edge-path {

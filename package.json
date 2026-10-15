@@ -1,5 +1,5 @@
 {
-  "name": "data-lineage-impact-analyzer",
+  "name": "impactdb-mcp",
   "version": "0.1.0",
   "private": true,
   "scripts": {

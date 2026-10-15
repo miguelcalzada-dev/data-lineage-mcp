@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Sparkle } from 'lucide-react';
+import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Network } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
 import { DatabaseExplorer } from '@/components/database-explorer';
@@ -16,6 +16,8 @@ import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgre
 import type { GraphMode } from '@/components/impact-graph';
 import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
+import { GradientText } from '@/components/gradient-text';
+import { BorderTrail } from '@/components/border-trail';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -161,7 +163,7 @@ export default function HomePage(): JSX.Element {
   );
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-cream text-ink">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink">
       <Header />
 
       <div
@@ -187,9 +189,9 @@ export default function HomePage(): JSX.Element {
               animate={{ opacity: 1, y: 0 }}
               className="text-center"
             >
-              <h1 className="flex items-center justify-center gap-3 text-balance text-center font-sans text-3xl font-semibold tracking-tight text-stone-900">
-                <Sparkle className="h-7 w-7 shrink-0 text-orange-500" />
-                <span>Explora el impacto de tus cambios</span>
+              <h1 className="flex items-center justify-center gap-3 text-balance text-center font-sans text-3xl font-semibold tracking-tight">
+                <Network className="h-7 w-7 shrink-0 text-orange-500" />
+                <GradientText text="Explora el impacto de tus cambios" />
               </h1>
             </motion.div>
           )}
@@ -209,6 +211,7 @@ export default function HomePage(): JSX.Element {
                 style={spotlight.overlayStyle}
               />
             )}
+            {!hasStarted && <BorderTrail />}
             <div className={hasStarted ? 'contents' : 'relative z-10'}>
             {hasStarted && (
               <div className="border-b border-stone-200 p-2">
