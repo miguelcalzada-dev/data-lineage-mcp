@@ -182,7 +182,7 @@ export function DatabaseExplorer({
               <button
                 type="button"
                 onClick={() => setShowInfo(false)}
-                className="rounded-md p-1 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600"
+                className="rounded-md p-1 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-night-700 dark:hover:text-night-200"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -190,7 +190,7 @@ export function DatabaseExplorer({
 
             <div className="mt-4 space-y-4 text-sm leading-relaxed text-stone-600 dark:text-night-300">
               <div>
-                <p className="font-medium text-stone-800">Opción 1 · Exportar desde aquí</p>
+                <p className="font-medium text-stone-800 dark:text-night-100">Opción 1 · Exportar desde aquí</p>
                 <p className="mt-1">
                   Si esta app ya está conectada a tu base de datos (Supabase), pulsa{' '}
                   <span className="font-medium">«Exportar (JSON)»</span> y se descargará el archivo
@@ -199,7 +199,7 @@ export function DatabaseExplorer({
               </div>
 
               <div>
-                <p className="font-medium text-stone-800">Opción 2 · Crear tu propio JSON</p>
+                <p className="font-medium text-stone-800 dark:text-night-100">Opción 2 · Crear tu propio JSON</p>
                 <p className="mt-1">
                   Para cualquier otra base de datos PostgreSQL, crea un archivo <code>.json</code> con
                   esta estructura y súbelo con{' '}
@@ -260,7 +260,9 @@ function TableRow({ table }: { table: TableInfo }): JSX.Element {
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 hover:bg-stone-50 dark:hover:bg-night-700">
         <span
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${
-            isView ? 'bg-stone-100 text-stone-500' : 'bg-orange-50 text-orange-600'
+            isView
+              ? 'bg-stone-100 text-stone-500 dark:bg-night-700 dark:text-night-300'
+              : 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400'
           }`}
         >
           <Icon className="h-3.5 w-3.5" />

@@ -273,7 +273,7 @@ export default function HomePage(): JSX.Element {
             >
               <div className="relative flex-1">
                 {error && (
-                  <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+                  <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
                     {error}
                   </div>
                 )}
@@ -327,9 +327,9 @@ function Accordion({
   defaultOpen?: boolean;
 }): JSX.Element {
   return (
-    <details className="group border-t border-stone-200" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 hover:bg-stone-50">
-        <span className="flex items-center gap-2 text-sm font-medium text-stone-700">
+    <details className="group border-t border-stone-200 dark:border-night-700" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 hover:bg-stone-50 dark:hover:bg-night-800">
+        <span className="flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-night-200">
           {icon}
           {title}
         </span>
@@ -344,31 +344,31 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
   const count = impact.affectedObjects.length;
 
   return (
-    <div className="absolute right-4 top-4 z-10 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg">
+    <div className="absolute right-4 top-4 z-10 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg dark:border-night-700 dark:bg-night-800">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-stone-800">Resultado</span>
+        <span className="text-sm font-semibold text-stone-800 dark:text-night-100">Resultado</span>
         <RiskBadge level={impact.risk} />
       </div>
 
       {count === 0 ? (
-        <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700">
+        <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="h-4 w-4" />
           Este cambio no romperá nada.
         </p>
       ) : (
         <>
-          <p className="mt-1 text-sm text-stone-600">
+          <p className="mt-1 text-sm text-stone-600 dark:text-night-300">
             {count} objeto{count === 1 ? '' : 's'} relacionado{count === 1 ? '' : 's'}:
           </p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {impact.affectedObjects.map((obj, i) => (
               <li
                 key={i}
-                className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs"
+                className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs dark:border-orange-500/40 dark:bg-orange-500/10"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                <span className="font-medium text-stone-700">{obj.name}</span>
-                <span className="text-stone-400">· {objectTypeLabel[obj.type] ?? obj.type}</span>
+                <span className="font-medium text-stone-700 dark:text-night-100">{obj.name}</span>
+                <span className="text-stone-400 dark:text-night-500">· {objectTypeLabel[obj.type] ?? obj.type}</span>
               </li>
             ))}
           </ul>
