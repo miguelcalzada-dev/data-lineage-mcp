@@ -75,12 +75,15 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
 
+    const gNodes = graph.nodes ?? [];
+    const gEdges = graph.edges ?? [];
+
     if (mode === 'schema') {
-      const cols = Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length)));
+      const cols = Math.max(1, Math.ceil(Math.sqrt(gNodes.length)));
       const colGap = 280;
       const rowGap = 150;
 
-      const gridNodes: Node[] = graph.nodes.map((node, index) => ({
+      const gridNodes: Node[] = gNodes.map((node, index) => ({
         id: node.id,
         type: 'custom',
         position: {
@@ -96,7 +99,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
         },
       }));
 
-      const gridEdges: Edge[] = graph.edges.map((edge) => ({
+      const gridEdges: Edge[] = gEdges.map((edge) => ({
         id: edge.id,
         source: edge.source,
         target: edge.target,
@@ -107,14 +110,14 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
       return { nodes: gridNodes, edges: gridEdges };
     }
 
-    const targetIds = new Set(graph.edges.map((e) => e.target));
-    const originId = graph.nodes.find((n) => !targetIds.has(n.id))?.id ?? graph.nodes[0]?.id;
+    const targetIds = new Set(gEdges.map((e) => e.target));
+    const originId = gNodes.find((n) => !targetIds.has(n.id))?.id ?? gNodes[0]?.id;
 
-    const dependents = graph.nodes.filter((n) => n.id !== originId);
+    const dependents = gNodes.filter((n) => n.id !== originId);
     const horizontalGap = 380;
     const verticalSpacing = 96;
 
-    const flowNodes: Node[] = graph.nodes.map((node) => {
+    const flowNodes: Node[] = gNodes.map((node) => {
       let position: { x: number; y: number };
 
       if (node.id === originId) {
@@ -140,7 +143,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
       };
     });
 
-    const flowEdges: Edge[] = graph.edges.map((edge) => ({
+    const flowEdges: Edge[] = gEdges.map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,

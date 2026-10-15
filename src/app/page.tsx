@@ -444,7 +444,8 @@ function Accordion({
 }
 
 function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
-  const count = impact.affectedObjects.length;
+  const affectedObjects = impact.affectedObjects ?? [];
+  const count = affectedObjects.length;
 
   if (impact.notFound) {
     return (
@@ -476,7 +477,7 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
             {count} objeto{count === 1 ? '' : 's'} relacionado{count === 1 ? '' : 's'}:
           </p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
-            {impact.affectedObjects.map((obj, i) => (
+            {affectedObjects.map((obj, i) => (
               <li
                 key={i}
                 className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs dark:border-orange-500/40 dark:bg-orange-500/10"

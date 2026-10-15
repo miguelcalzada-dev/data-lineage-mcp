@@ -92,7 +92,7 @@ export function ChatPanel({
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>(() => pickSuggestions(pool, 3));
+  const [suggestions, setSuggestions] = useState<string[]>(() => pool.slice(0, 3));
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);

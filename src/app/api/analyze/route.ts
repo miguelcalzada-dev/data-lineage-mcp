@@ -4,6 +4,18 @@ import { generateGraphTool, type GraphDefinition } from '@/mcp/tools/generate-gr
 import { isValidSchema } from '@/mcp/utils/schema-analyzer';
 import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
+function parseGraphDefinition(text: string): GraphDefinition | undefined {
+  try {
+    const parsed = JSON.parse(text) as Partial<GraphDefinition> | null;
+    if (parsed && Array.isArray(parsed.nodes) && Array.isArray(parsed.edges)) {
+      return { nodes: parsed.nodes, edges: parsed.edges };
+    }
+  } catch {
+    // contenido no-JSON o grafo inválido
+  }
+  return undefined;
+}
+
 export interface AnalyzeRequest {
   ddlStatement?: string;
   tableName?: string;
@@ -56,7 +68,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (lineage) {
       const affectedObjectNames = (impact?.affectedObjects ?? []).map((obj) => obj.name);
       const result = await generateGraphTool.execute({ lineage, affectedObjectNames });
-      graph = JSON.parse(result.content[0].text) as GraphDefinition;
+      graph = parseGraphDefinition(result.content[0].text);
       steps.push({
         tool: 'generate_graph_definition',
         input: { lineage, affectedObjectNames },

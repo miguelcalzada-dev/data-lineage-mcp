@@ -118,6 +118,18 @@ interface ToolExecution {
   lineage?: LineageNode[];
 }
 
+function parseGraphDefinition(text: string): GraphDefinition | undefined {
+  try {
+    const parsed = JSON.parse(text) as Partial<GraphDefinition> | null;
+    if (parsed && Array.isArray(parsed.nodes) && Array.isArray(parsed.edges)) {
+      return { nodes: parsed.nodes, edges: parsed.edges };
+    }
+  } catch {
+    // contenido no-JSON o grafo inválido
+  }
+  return undefined;
+}
+
 async function executeToolCall(call: GroqToolCall, override?: SchemaMetadata): Promise<ToolExecution> {
   const name = call.function.name;
   const args = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
@@ -167,11 +179,7 @@ async function executeToolCall(call: GroqToolCall, override?: SchemaMetadata): P
       }
       const result = await generateGraphTool.execute(graphArgs);
       execution.content = result.content[0].text;
-      try {
-        execution.graph = JSON.parse(execution.content) as GraphDefinition;
-      } catch {
-        execution.graph = undefined;
-      }
+      execution.graph = parseGraphDefinition(execution.content);
     } else {
       execution.content = JSON.stringify({ error: `Herramienta desconocida: ${name}` });
     }
@@ -185,11 +193,7 @@ async function executeToolCall(call: GroqToolCall, override?: SchemaMetadata): P
     let content = result.content.map((c) => (c.type === 'text' ? c.text : JSON.stringify(c))).join('\n');
 
     if (name === 'generate_graph_definition') {
-      try {
-        execution.graph = JSON.parse(content) as GraphDefinition;
-      } catch {
-        execution.graph = undefined;
-      }
+      execution.graph = parseGraphDefinition(content);
     }
     if (name === 'predict_breaking_changes') {
       try {
@@ -266,7 +270,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const affectedNames = (impact?.affectedObjects ?? []).map((o) => o.name);
       try {
         const gr = await generateGraphTool.execute({ lineage: effective, affectedObjectNames: affectedNames });
-        graph = JSON.parse(gr.content[0].text) as GraphDefinition;
+        graph = parseGraphDefinition(gr.content[0].text);
       } catch {
         graph = undefined;
       }
