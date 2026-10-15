@@ -14,11 +14,13 @@ body {
 }
 
 .react-flow__node {
-  @apply rounded-lg border border-stone-200 bg-white shadow-sm;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 .react-flow__node.selected {
-  @apply ring-2 ring-stone-700;
+  @apply rounded-lg ring-2 ring-stone-400;
 }
 
 .react-flow__edge-path {
