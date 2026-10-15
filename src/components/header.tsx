@@ -43,7 +43,7 @@ export function Header(): JSX.Element {
       : 'bg-stone-300';
 
   return (
-    <div className="pointer-events-none absolute right-5 top-4 z-30 flex items-center gap-3.5 text-[11px] font-medium text-stone-500">
+    <div className="pointer-events-none absolute bottom-4 right-5 z-30 flex items-center gap-3.5 text-[11px] font-medium text-stone-500">
       <span className="flex items-center gap-1.5">
         <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
         Supabase

@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   Panel,
   type Node,
   type Edge,
@@ -198,11 +197,6 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
             </div>
           </Panel>
         )}
-        <MiniMap
-          nodeStrokeWidth={3}
-          nodeColor={(n) => (n.data?.affected ? '#f97316' : n.data?.isOrigin ? '#78716c' : '#d6d3d1')}
-          className="rounded-lg border border-stone-200"
-        />
       </ReactFlow>
     </div>
   );
