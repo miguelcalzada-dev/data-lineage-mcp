@@ -76,7 +76,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
     if (!graph) return { nodes: [], edges: [] };
 
     if (mode === 'schema') {
-      const cols = 5;
+      const cols = Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length)));
       const colGap = 280;
       const rowGap = 150;
 

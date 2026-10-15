@@ -211,10 +211,10 @@ export function DatabaseExplorer({
   "tables": [
     {
       "schema": "public",
-      "name": "orders",
+      "name": "pedidos",
       "type": "BASE TABLE",
       "columns": [
-        { "table_schema": "public", "table_name": "orders",
+        { "table_schema": "public", "table_name": "pedidos",
           "column_name": "id", "data_type": "uuid",
           "is_nullable": "NO", "column_default": null,
           "ordinal_position": 1 }
@@ -222,17 +222,17 @@ export function DatabaseExplorer({
     }
   ],
   "views": [
-    { "schema": "public", "name": "vw_x", "definition": "SELECT ..." }
+    { "schema": "public", "name": "vista_resumen_clientes", "definition": "SELECT ..." }
   ],
   "routines": [
-    { "schema": "public", "name": "fn_x", "type": "FUNCTION",
+    { "schema": "public", "name": "valor_total_cliente", "type": "FUNCTION",
       "return_type": null, "language": "plpgsql", "definition": "..." }
   ],
   "foreignKeys": [
     { "constraint_name": "fk_1",
-      "source_schema": "public", "source_table": "orders",
-      "source_column": "customer_id",
-      "target_schema": "public", "target_table": "customers",
+      "source_schema": "public", "source_table": "pedidos",
+      "source_column": "cliente_id",
+      "target_schema": "public", "target_table": "clientes",
       "target_column": "id" }
   ],
   "primaryKeys": []

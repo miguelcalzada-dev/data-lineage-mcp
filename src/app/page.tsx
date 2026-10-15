@@ -301,7 +301,7 @@ export default function HomePage(): JSX.Element {
                 className="flex items-center gap-1.5 text-xs text-stone-400 transition hover:text-stone-600 dark:text-night-500 dark:hover:text-night-300"
               >
                 <Upload className="h-3.5 w-3.5" />
-                ¿Tienes tu propia base de datos? Cárgala
+                ¿Tienes tu propia base de datos? Carga tu JSON
               </button>
             </div>
           )}
