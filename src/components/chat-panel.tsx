@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ArrowUp, Network, RotateCcw } from 'lucide-react';
 import { TypingText } from '@/components/typing-text';
 import { Spinner } from '@/components/spinner';
+import { Markdown } from '@/components/markdown';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
@@ -204,16 +205,23 @@ export function ChatPanel({
         <div className="space-y-3">
           {messages.map((m, i) => {
             const isLast = i === messages.length - 1;
+            const isUser = m.role === 'user';
             return (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[85%] whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-orange-600 text-white'
+                  className={`max-w-[85%] break-words rounded-xl px-3 py-2 text-sm ${
+                    isUser
+                      ? 'whitespace-pre-wrap bg-orange-600 text-white'
                       : 'border border-stone-200 bg-white text-stone-700'
                   }`}
                 >
-                  {m.role === 'assistant' && isLast ? <TypingText text={m.content} /> : m.content}
+                  {isUser ? (
+                    m.content
+                  ) : isLast ? (
+                    <TypingText text={m.content} render={(t) => <Markdown text={t} />} />
+                  ) : (
+                    <Markdown text={m.content} />
+                  )}
                 </div>
               </div>
             );

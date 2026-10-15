@@ -1,8 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
-export function TypingText({ text, speed = 10 }: { text: string; speed?: number }): JSX.Element {
+export function TypingText({
+  text,
+  speed = 10,
+  render,
+}: {
+  text: string;
+  speed?: number;
+  render?: (partial: string) => ReactNode;
+}): JSX.Element {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -20,5 +28,6 @@ export function TypingText({ text, speed = 10 }: { text: string; speed?: number 
     return () => clearInterval(interval);
   }, [text, speed]);
 
-  return <>{text.slice(0, count)}</>;
+  const partial = text.slice(0, count);
+  return <>{render ? render(partial) : partial}</>;
 }
