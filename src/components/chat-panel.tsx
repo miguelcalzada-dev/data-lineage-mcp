@@ -190,6 +190,12 @@ export function ChatPanel({
                 void send();
               }
             }}
+            onWheel={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollHeight <= el.clientHeight + 1) {
+                e.preventDefault();
+              }
+            }}
             rows={1}
             placeholder="Escribe tu pregunta…"
             className="no-scrollbar max-h-[160px] flex-1 resize-none overflow-y-auto rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-snug text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"

@@ -175,69 +175,81 @@ export default function HomePage(): JSX.Element {
           className={
             hasStarted
               ? 'flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white'
-              : 'w-full max-w-3xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm'
+              : 'flex w-full max-w-3xl flex-col gap-4'
           }
         >
-          {hasStarted && (
-            <div className="flex border-b border-stone-200">
-              <TabButton
-                active={tab === 'chat'}
-                onClick={() => setTab('chat')}
-                icon={<MessageSquare className="h-4 w-4" />}
-                label="Chat"
-              />
-              <TabButton
-                active={tab === 'db'}
-                onClick={() => {
-                  setTab('db');
-                  void loadSchemaGraph();
-                }}
-                icon={<Database className="h-4 w-4" />}
-                label="Base de datos"
-              />
-            </div>
-          )}
-
           {!hasStarted && (
-            <div className="border-b border-stone-100 px-8 py-7 text-center">
-              <h1 className="font-serif text-3xl italic text-orange-600">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-stone-200 bg-white px-8 py-7 text-center shadow-sm"
+            >
+              <h1 className="font-display text-4xl font-bold text-orange-600">
                 Explora el impacto de tus cambios
               </h1>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-500">
+              <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-stone-500">
                 Pregunta en lenguaje natural y descubre qué se rompería en tu base de datos antes de
                 aplicarlo.
               </p>
-            </div>
+            </motion.div>
           )}
 
-          <div className={hasStarted ? 'min-h-0 flex-1' : ''}>
-            {hasStarted && tab === 'db' ? (
-              <DatabaseExplorer
-                schema={customSchema}
-                onLoadSchema={handleLoadSchema}
-                onClearSchema={handleClearSchema}
-              />
-            ) : (
-              <ChatPanel
-                onResult={handleChatResult}
-                schema={customSchema}
-                onStart={() => setHasStarted(true)}
-                expanded={hasStarted}
-                hideTitle={!hasStarted}
-              />
+          <div
+            className={
+              hasStarted
+                ? 'flex min-h-0 flex-1 flex-col'
+                : 'overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm'
+            }
+          >
+            {hasStarted && (
+              <div className="flex border-b border-stone-200">
+                <TabButton
+                  active={tab === 'chat'}
+                  onClick={() => setTab('chat')}
+                  icon={<MessageSquare className="h-4 w-4" />}
+                  label="Chat"
+                />
+                <TabButton
+                  active={tab === 'db'}
+                  onClick={() => {
+                    setTab('db');
+                    void loadSchemaGraph();
+                  }}
+                  icon={<Database className="h-4 w-4" />}
+                  label="Base de datos"
+                />
+              </div>
+            )}
+
+            <div className={hasStarted ? 'min-h-0 flex-1' : ''}>
+              {hasStarted && tab === 'db' ? (
+                <DatabaseExplorer
+                  schema={customSchema}
+                  onLoadSchema={handleLoadSchema}
+                  onClearSchema={handleClearSchema}
+                />
+              ) : (
+                <ChatPanel
+                  onResult={handleChatResult}
+                  schema={customSchema}
+                  onStart={() => setHasStarted(true)}
+                  expanded={hasStarted}
+                  hideTitle={!hasStarted}
+                />
+              )}
+            </div>
+
+            {hasStarted && (
+              <Accordion title="Explorar dependencias" icon={<GitBranch className="h-4 w-4" />}>
+                <div className="p-4 pt-0">
+                  <p className="mb-3 text-xs leading-relaxed text-stone-500">
+                    Elige una tabla y columna para ver qué la usa.
+                  </p>
+                  <SchemaSelector onSelect={handleTraceLineage} schema={customSchema} />
+                </div>
+              </Accordion>
             )}
           </div>
-
-          {hasStarted && (
-            <Accordion title="Explorar dependencias" icon={<GitBranch className="h-4 w-4" />}>
-              <div className="p-4 pt-0">
-                <p className="mb-3 text-xs leading-relaxed text-stone-500">
-                  Elige una tabla y columna para ver qué la usa.
-                </p>
-                <SchemaSelector onSelect={handleTraceLineage} schema={customSchema} />
-              </div>
-            </Accordion>
-          )}
         </motion.div>
 
         {/* Panel derecho: grafo */}
