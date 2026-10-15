@@ -13,13 +13,52 @@ interface ChatMessage {
 }
 
 const SUGGESTION_POOL: string[] = [
+  // Impacto al borrar columnas
   '¿Qué pasa si borro la columna customer_id de orders?',
-  '¿Quién depende de la columna email de users?',
+  '¿Qué se rompe si elimino la columna email de users?',
+  '¿Qué impacto tiene borrar product_id de order_items?',
+  '¿Qué ocurre si elimino la columna category_id de products?',
+  '¿Qué pasa si borro organization_id de users?',
+  '¿Qué se rompe si elimino la columna order_id de payments?',
+  '¿Qué impacto tiene borrar price de products?',
+  '¿Y si elimino la columna id de orders?',
+  '¿Qué pasa si borro created_at de customers?',
+  '¿Qué se rompe si elimino la columna quantity de inventory?',
+  '¿Qué impacto tiene borrar rating de reviews?',
+  '¿Y si elimino performed_by de audit_logs?',
+
+  // Impacto al eliminar tablas
   '¿Qué se rompe si elimino la tabla products?',
+  '¿Qué pasa si elimino la tabla orders?',
+  '¿Qué impacto tiene borrar la tabla customers?',
+  '¿Qué se rompe si elimino la tabla users?',
+  '¿Y si elimino la tabla categories?',
+  '¿Qué pasa si borro la tabla payments?',
+  '¿Qué ocurre si elimino la tabla order_items?',
+  '¿Qué impacto tiene borrar la tabla inventory?',
+
+  // Renombrar columnas
   '¿Qué pasa si renombro price en products?',
+  '¿Qué impacto tiene renombrar email en users?',
+  '¿Y si renombro total_amount en orders?',
+  '¿Qué se rompe si renombro customer_id en orders?',
+  '¿Qué pasa si renombro name en categories?',
+
+  // Dependencias (linaje)
+  '¿Quién depende de la columna email de users?',
   '¿Qué depende de la tabla customers?',
-  '¿Qué pasa si borro product_id de order_items?',
-  '¿Qué se rompe si elimino la tabla orders?',
+  '¿Quién usa la columna customer_id de orders?',
+  '¿Qué objetos dependen de la columna category_id de products?',
+  '¿Qué vistas dependen de la tabla orders?',
+  '¿Qué depende de la columna product_id de order_items?',
+  '¿Quién usa la columna order_id de shipments?',
+
+  // Esquema
+  '¿Qué tablas hay en la base de datos?',
+  '¿Qué columnas tiene la tabla orders?',
+  '¿Cuántas vistas hay en el esquema?',
+  '¿Qué funciones están definidas?',
+  '¿Qué tablas tienen claves foráneas?',
 ];
 
 function pickSuggestions(count: number): string[] {
