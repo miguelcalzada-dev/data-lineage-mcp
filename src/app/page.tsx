@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { CheckCircle2, ListChecks, GitBranch, Sparkles } from 'lucide-react';
+import { useState, useCallback, type ReactNode } from 'react';
+import { CheckCircle2, ListChecks, GitBranch, ChevronDown } from 'lucide-react';
 import { Header } from '@/components/header';
 import { MigrationEditor } from '@/components/migration-editor';
 import { ImpactGraph } from '@/components/impact-graph';
-import { McpLiveInspector } from '@/components/mcp-live-inspector';
 import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
 import type { AnalyzeResponse, AnalyzeStep } from '@/app/api/analyze/route';
@@ -125,131 +124,121 @@ export default function HomePage(): JSX.Element {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-cream text-ink">
+    <div className="relative flex h-screen overflow-hidden bg-cream text-ink">
       <Header />
 
-      <main className="flex flex-1 gap-px overflow-hidden border-t border-stone-200 bg-stone-200">
-        {/* Panel izquierdo */}
-        <section className="flex w-[380px] flex-col bg-white">
-          <div className="flex items-center gap-2 border-b border-stone-200 px-4 py-3">
-            <Sparkles className="h-4 w-4 text-orange-600" />
-            <h2 className="text-sm font-semibold text-stone-800">¿Qué cambio quieres analizar?</h2>
+      {/* Panel izquierdo */}
+      <aside className="flex w-[340px] shrink-0 flex-col overflow-y-auto border-r border-stone-300 bg-white">
+        <div className="border-b border-stone-200 p-4">
+          <h2 className="text-sm font-semibold text-stone-800">¿Qué cambio quieres analizar?</h2>
+          <p className="mb-3 mt-0.5 text-xs text-stone-500">Escribe una sentencia o elige un ejemplo.</p>
+          <MigrationEditor
+            value={ddlStatement}
+            onChange={setDdlStatement}
+            onSubmit={handleSimulateImpact}
+            loading={loading}
+          />
+        </div>
+
+        <Accordion title="Ejemplos rápidos" icon={<ListChecks className="h-4 w-4" />} defaultOpen>
+          <div className="space-y-1.5 p-4 pt-0">
+            {QUICK_PROMPTS.map((prompt) => (
+              <QuickPrompt
+                key={prompt.ddl}
+                label={prompt.label}
+                description={prompt.description}
+                ddl={prompt.ddl}
+                onClick={handleQuickPrompt}
+              />
+            ))}
           </div>
+        </Accordion>
 
-          <div className="flex-1 overflow-y-auto p-4">
-            <MigrationEditor
-              value={ddlStatement}
-              onChange={setDdlStatement}
-              onSubmit={handleSimulateImpact}
-              loading={loading}
-            />
+        <Accordion title="Explorar dependencias" icon={<GitBranch className="h-4 w-4" />}>
+          <div className="p-4 pt-0">
+            <p className="mb-3 text-xs leading-relaxed text-stone-500">
+              Elige una tabla y columna para ver qué la usa.
+            </p>
+            <SchemaSelector onSelect={handleTraceLineage} />
+          </div>
+        </Accordion>
+      </aside>
 
-            <div className="mt-6">
-              <div className="mb-2 flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-stone-500" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                  Ejemplos rápidos
-                </h3>
-              </div>
-              <p className="mb-3 text-xs leading-relaxed text-stone-500">
-                Pulsa uno para ver cómo funciona al instante.
-              </p>
-              <div className="space-y-2">
-                {QUICK_PROMPTS.map((prompt) => (
-                  <QuickPrompt
-                    key={prompt.ddl}
-                    label={prompt.label}
-                    description={prompt.description}
-                    ddl={prompt.ddl}
-                    onClick={handleQuickPrompt}
-                  />
-                ))}
-              </div>
+      {/* Panel principal */}
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        <div className="relative flex-1">
+          {error && (
+            <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+              {error}
             </div>
-
-            <div className="mt-6">
-              <div className="mb-2 flex items-center gap-2">
-                <GitBranch className="h-4 w-4 text-stone-500" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                  Explorar dependencias
-                </h3>
-              </div>
-              <p className="mb-3 text-xs leading-relaxed text-stone-500">
-                Elige una tabla y una columna para ver quién depende de ella (vistas, funciones o
-                claves foráneas que la usan).
-              </p>
-              <SchemaSelector onSelect={handleTraceLineage} />
-            </div>
-          </div>
-        </section>
-
-        {/* Panel central */}
-        <section className="flex min-w-0 flex-1 flex-col bg-white">
-          <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-stone-800">Mapa de impacto</h2>
-          </div>
-
+          )}
+          <ImpactGraph graph={graph} loading={loading} />
           {impact && <ImpactSummary impact={impact} />}
-
-          <div className="relative flex-1">
-            {error && (
-              <div className="absolute left-4 right-4 top-4 z-10 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
-                {error}
-              </div>
-            )}
-            <ImpactGraph graph={graph} loading={loading} />
-          </div>
-        </section>
-
-        {/* Panel derecho */}
-        <section className="flex w-[380px] flex-col bg-white">
-          <div className="border-b border-stone-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-stone-800">Inspector MCP en vivo</h2>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <McpLiveInspector steps={steps} loading={loading} />
-          </div>
-        </section>
+        </div>
       </main>
     </div>
+  );
+}
+
+function Accordion({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}): JSX.Element {
+  return (
+    <details className="group border-b border-stone-200" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 hover:bg-stone-50">
+        <span className="flex items-center gap-2 text-sm font-medium text-stone-700">
+          {icon}
+          {title}
+        </span>
+        <ChevronDown className="h-4 w-4 text-stone-400 transition-transform group-open:rotate-180" />
+      </summary>
+      {children}
+    </details>
   );
 }
 
 function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
   const count = impact.affectedObjects.length;
 
-  if (count === 0) {
-    return (
-      <div className="flex items-center gap-2 border-b border-emerald-100 bg-emerald-50 px-4 py-3">
-        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-        <span className="text-sm font-medium text-emerald-800">
-          Sin impacto: este cambio no romperá nada.
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div className="border-b border-stone-200 bg-stone-50 px-4 py-3">
+    <div className="absolute left-4 top-4 z-10 max-w-sm rounded-xl border border-stone-200 bg-white p-4 shadow-lg">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-stone-800">Resultado del análisis</span>
+        <span className="text-sm font-semibold text-stone-800">Resultado</span>
         <RiskBadge level={impact.risk} />
       </div>
-      <p className="mt-1 text-sm text-stone-600">
-        Este cambio afectará a {count} objeto{count === 1 ? '' : 's'}:
-      </p>
-      <ul className="mt-2 flex flex-wrap gap-1.5">
-        {impact.affectedObjects.map((obj, i) => (
-          <li
-            key={i}
-            className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-white px-2.5 py-0.5 text-xs"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
-            <span className="font-medium text-stone-700">{obj.name}</span>
-            <span className="text-stone-400">· {objectTypeLabel[obj.type] ?? obj.type}</span>
-          </li>
-        ))}
-      </ul>
+
+      {count === 0 ? (
+        <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700">
+          <CheckCircle2 className="h-4 w-4" />
+          Este cambio no romperá nada.
+        </p>
+      ) : (
+        <>
+          <p className="mt-1 text-sm text-stone-600">
+            Este cambio afectará a {count} objeto{count === 1 ? '' : 's'}:
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {impact.affectedObjects.map((obj, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                <span className="font-medium text-stone-700">{obj.name}</span>
+                <span className="text-stone-400">· {objectTypeLabel[obj.type] ?? obj.type}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -269,7 +258,7 @@ function QuickPrompt({
     <button
       type="button"
       onClick={() => onClick(ddl)}
-      className="w-full rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-left transition hover:border-stone-300 hover:bg-stone-100"
+      className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-left transition hover:border-orange-300 hover:bg-orange-50"
     >
       <span className="block text-sm font-medium text-stone-800">{label}</span>
       <span className="block font-mono text-[11px] text-stone-400">{description}</span>

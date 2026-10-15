@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Database, Server, Activity } from 'lucide-react';
 
 export function Header(): JSX.Element {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
@@ -31,68 +30,28 @@ export function Header(): JSX.Element {
     }
 
     void checkHealth();
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-stone-200 bg-white px-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600">
-          <Activity className="h-4 w-4 text-white" />
-        </div>
-        <div>
-          <h1 className="text-sm font-semibold text-stone-900">Analizador de Linaje e Impacto de Datos</h1>
-          <p className="text-xs text-stone-500">Análisis de impacto en PostgreSQL con MCP</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <StatusBadge
-          icon={<Database className="h-3 w-3" />}
-          label="Supabase"
-          status={dbStatus}
-        />
-        <StatusBadge
-          icon={<Server className="h-3 w-3" />}
-          label="Herramientas MCP"
-          status={mcpStatus}
-        />
-      </div>
-    </header>
-  );
-}
-
-function StatusBadge({
-  icon,
-  label,
-  status,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  status: 'checking' | 'connected' | 'error';
-}): JSX.Element {
-  const statusClasses = {
-    checking: 'bg-stone-100 text-stone-500',
-    connected: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    error: 'bg-red-50 text-red-700 border-red-200',
-  };
-
-  const statusLabel: Record<'checking' | 'connected' | 'error', string> = {
-    checking: 'comprobando',
-    connected: 'conectado',
-    error: 'error',
-  };
+  const dotClass = (status: 'checking' | 'connected' | 'error'): string =>
+    status === 'connected'
+      ? 'bg-emerald-500'
+      : status === 'error'
+      ? 'bg-red-500'
+      : 'bg-stone-300';
 
   return (
-    <div
-      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses[status]}`}
-    >
-      {icon}
-      <span>{label}</span>
-      <span className="capitalize">{statusLabel[status]}</span>
+    <div className="pointer-events-none absolute right-4 top-4 z-20 flex items-center gap-3 text-[11px] font-medium text-stone-500">
+      <span className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
+        Supabase
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
+        MCP
+      </span>
     </div>
   );
 }
