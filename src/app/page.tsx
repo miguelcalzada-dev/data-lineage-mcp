@@ -163,7 +163,7 @@ export default function HomePage(): JSX.Element {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-night-100">
-      <Header />
+      <Header align={hasStarted ? 'right' : 'left'} />
 
       <div
         className={

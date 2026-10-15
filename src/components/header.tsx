@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
-export function Header(): JSX.Element {
+export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.Element {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [mcpStatus, setMcpStatus] = useState<'checking' | 'connected' | 'error'>('checking');
 
@@ -44,7 +44,11 @@ export function Header(): JSX.Element {
       : 'bg-stone-300';
 
   return (
-    <div className="absolute bottom-4 left-4 z-30 flex items-center gap-3 text-[11px] font-medium text-stone-500 dark:text-night-400">
+    <div
+      className={`absolute bottom-4 z-30 flex items-center gap-3 text-[11px] font-medium text-stone-500 dark:text-night-400 ${
+        align === 'right' ? 'right-6' : 'left-4'
+      }`}
+    >
       <div className="pointer-events-auto">
         <ThemeToggle />
       </div>
