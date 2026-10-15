@@ -126,7 +126,10 @@ async function executeToolCall(call: GroqToolCall, override?: SchemaMetadata): P
   if (override) {
     if (name === 'get_schema_metadata') {
       execution.content = JSON.stringify({
-        tables: override.tables.map((t) => t.name),
+        tables: override.tables.map((t) => ({
+          name: t.name,
+          columns: t.columns.map((c) => c.column_name),
+        })),
         views: override.views.map((v) => v.name),
       });
     } else if (name === 'trace_column_lineage') {
@@ -292,7 +295,10 @@ function summarizeSchema(content: string): string {
   try {
     const parsed = JSON.parse(content) as SchemaMetadata;
     return JSON.stringify({
-      tables: (parsed.tables ?? []).map((t) => t.name),
+      tables: (parsed.tables ?? []).map((t) => ({
+        name: t.name,
+        columns: (t.columns ?? []).map((c) => c.column_name),
+      })),
       views: (parsed.views ?? []).map((v) => v.name),
     });
   } catch {

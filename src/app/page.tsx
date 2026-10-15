@@ -44,6 +44,7 @@ export default function HomePage(): JSX.Element {
   const [activePresetId, setActivePresetId] = useState<string>('empresa');
   const [chatSuggestions, setChatSuggestions] = useState<string[]>(DATABASE_PRESETS[0].suggestions);
   const [isCustomSchema, setIsCustomSchema] = useState<boolean>(false);
+  const [schemaVersion, setSchemaVersion] = useState<number>(0);
   const spotlight = useSpotlight();
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function HomePage(): JSX.Element {
     setIsCustomSchema(true);
     setActivePresetId('custom');
     setChatSuggestions(buildSchemaSuggestions(loaded));
+    setSchemaVersion((v) => v + 1);
     setGraph(schemaToGraph(loaded));
     setImpact(null);
     setGraphMode('schema');
@@ -85,6 +87,7 @@ export default function HomePage(): JSX.Element {
       setChatSuggestions(preset.suggestions);
       setIsCustomSchema(false);
       setCustomSchema(preset.schema);
+      setSchemaVersion((v) => v + 1);
       setGraph(schemaToGraph(preset.schema));
       setImpact(null);
       setGraphMode('schema');
@@ -220,6 +223,10 @@ export default function HomePage(): JSX.Element {
     []
   );
 
+  const activeDatabaseLabel = isCustomSchema
+    ? 'Base propia (JSON)'
+    : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
+
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-night-100">
       <Header align={hasStarted ? 'right' : 'left'} />
@@ -300,12 +307,14 @@ export default function HomePage(): JSX.Element {
                 />
               ) : (
                 <ChatPanel
+                  key={schemaVersion}
                   onResult={handleChatResult}
                   schema={customSchema}
                   onStart={() => setHasStarted(true)}
                   expanded={hasStarted}
                   hideTitle={!hasStarted}
                   suggestions={chatSuggestions}
+                  databaseLabel={activeDatabaseLabel}
                 />
               )}
             </div>

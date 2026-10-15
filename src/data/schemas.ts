@@ -60,7 +60,7 @@ export interface DatabasePreset {
 }
 
 /* ------------------------------------------------------------------ */
-/* 1. Empresa (coincide con el esquema "empresa" de supabase/esquemas.sql) */
+/* 1. Empresa (tienda en español)                                      */
 /* ------------------------------------------------------------------ */
 const empresa: DatabasePreset = {
   id: 'empresa',

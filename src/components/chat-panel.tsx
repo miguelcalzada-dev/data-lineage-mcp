@@ -5,6 +5,7 @@ import { ArrowUp, Network, RotateCcw } from 'lucide-react';
 import { TypingText } from '@/components/typing-text';
 import { Spinner } from '@/components/spinner';
 import { Markdown } from '@/components/markdown';
+import { DatabaseBadge } from '@/components/database-badge';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import { apiPath } from '@/lib/api';
@@ -74,6 +75,7 @@ export interface ChatPanelProps {
   expanded?: boolean;
   hideTitle?: boolean;
   suggestions?: string[];
+  databaseLabel?: string;
 }
 
 export function ChatPanel({
@@ -83,6 +85,7 @@ export function ChatPanel({
   expanded = false,
   hideTitle = false,
   suggestions: suggestionSource,
+  databaseLabel,
 }: ChatPanelProps): JSX.Element {
   const pool = suggestionSource && suggestionSource.length > 0 ? suggestionSource : SUGGESTION_POOL;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -183,17 +186,20 @@ export function ChatPanel({
 
   return (
     <div className={expanded ? 'flex h-full flex-col' : 'flex flex-col'}>
-      {expanded && messages.length > 0 && (
-        <div className="flex justify-end px-3 pt-2">
-          <button
-            type="button"
-            onClick={clearChat}
-            title="Nueva conversación"
-            aria-label="Nueva conversación"
-            className="group flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-night-500 dark:hover:bg-night-700 dark:hover:text-night-100"
-          >
-            <RotateCcw className="h-[15px] w-[15px] transition-transform duration-500 ease-out group-hover:-rotate-180" />
-          </button>
+      {expanded && (
+        <div className="flex items-center justify-between gap-2 px-3 pt-2">
+          <DatabaseBadge label={databaseLabel ?? 'Base de datos'} />
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={clearChat}
+              title="Nueva conversación"
+              aria-label="Nueva conversación"
+              className="group flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-night-500 dark:hover:bg-night-700 dark:hover:text-night-100"
+            >
+              <RotateCcw className="h-[15px] w-[15px] transition-transform duration-500 ease-out group-hover:-rotate-180" />
+            </button>
+          )}
         </div>
       )}
 

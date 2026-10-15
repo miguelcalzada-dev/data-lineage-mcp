@@ -164,6 +164,16 @@ export function predictImpact(schema: SchemaMetadata, ddlStatement: string): Ddl
         });
       }
     }
+    for (const routine of schema.routines) {
+      if (containsIdentifier((routine.definition ?? '').toLowerCase(), targetTable.name.toLowerCase())) {
+        affectedObjects.push({
+          type: 'routine',
+          schema: routine.schema,
+          name: routine.name,
+          detail: `La función usa la tabla ${targetTable.name}`,
+        });
+      }
+    }
   }
 
   if (action === 'rename_column') {
