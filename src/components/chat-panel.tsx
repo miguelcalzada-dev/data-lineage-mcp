@@ -27,9 +27,16 @@ function pickSuggestions(count: number): string[] {
 export interface ChatPanelProps {
   onResult: (graph: GraphDefinition | null, impact: DdlImpact | null) => void;
   schema?: SchemaMetadata | null;
+  onStart?: () => void;
+  expanded?: boolean;
 }
 
-export function ChatPanel({ onResult, schema = null }: ChatPanelProps): JSX.Element {
+export function ChatPanel({
+  onResult,
+  schema = null,
+  onStart,
+  expanded = false,
+}: ChatPanelProps): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -46,19 +53,21 @@ export function ChatPanel({ onResult, schema = null }: ChatPanelProps): JSX.Elem
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 88)}px`;
   }, [input]);
 
   async function send(text?: string): Promise<void> {
     const content = (text ?? input).trim();
     if (!content || loading) return;
 
+    const isFirst = messages.length === 0;
     const next: ChatMessage[] = [...messages, { role: 'user', content }];
     setMessages(next);
     setInput('');
     setLoading(true);
     setError(null);
     setSuggestions(pickSuggestions(3));
+    if (isFirst && onStart) onStart();
 
     try {
       const res = await fetch('/api/chat', {
@@ -94,8 +103,8 @@ export function ChatPanel({ onResult, schema = null }: ChatPanelProps): JSX.Elem
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {messages.length > 0 && (
+    <div className={expanded ? 'flex h-full flex-col' : 'flex flex-col'}>
+      {expanded && messages.length > 0 && (
         <div className="flex justify-end px-3 pt-2">
           <button
             type="button"
@@ -108,7 +117,7 @@ export function ChatPanel({ onResult, schema = null }: ChatPanelProps): JSX.Elem
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} className={expanded ? 'flex-1 overflow-y-auto p-4' : 'p-4'}>
         {messages.length === 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-stone-800">
@@ -176,8 +185,8 @@ export function ChatPanel({ onResult, schema = null }: ChatPanelProps): JSX.Elem
               }
             }}
             rows={1}
-            placeholder="Escribe tu pregunta… (Shift+Enter para salto de línea)"
-            className="max-h-[140px] flex-1 resize-none rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+            placeholder="Escribe tu pregunta…"
+            className="max-h-[88px] flex-1 resize-none rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-snug text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
           />
           <button
             type="button"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
@@ -12,7 +13,7 @@ import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import type { GraphMode } from '@/components/impact-graph';
-import { isValidSchema } from '@/mcp/utils/schema-analyzer';
+import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -24,8 +25,11 @@ const objectTypeLabel: Record<string, string> = {
 
 type Tab = 'chat' | 'db';
 
+const springTransition = { type: 'spring' as const, stiffness: 320, damping: 34 };
+
 export default function HomePage(): JSX.Element {
   const [tab, setTab] = useState<Tab>('chat');
+  const [hasStarted, setHasStarted] = useState<boolean>(false);
   const [graph, setGraph] = useState<GraphDefinition | null>(null);
   const [impact, setImpact] = useState<DdlImpact | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -47,8 +51,10 @@ export default function HomePage(): JSX.Element {
 
   const handleLoadSchema = useCallback((loaded: SchemaMetadata): void => {
     setCustomSchema(loaded);
+    setGraph(schemaToGraph(loaded));
     setImpact(null);
-    setGraph(null);
+    setGraphMode('schema');
+    setHasStarted(true);
     try {
       window.localStorage.setItem('dlia:customSchema', JSON.stringify(loaded));
     } catch {
@@ -65,74 +71,82 @@ export default function HomePage(): JSX.Element {
     }
   }, []);
 
-  const loadSchemaGraph = useCallback(async (): Promise<void> => {
-    setLoading(true);
-    setError(null);
+  const loadSchemaGraph = useCallback(
+    async (override?: SchemaMetadata | null): Promise<void> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch('/api/schema-graph', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schema: customSchema ?? undefined }),
-      });
-      const data = (await response.json()) as GraphDefinition & { error?: string };
-      if (!response.ok || data.error) {
-        throw new Error(data.error ?? 'No se pudo cargar el esquema');
-      }
-      setGraph(data);
-      setImpact(null);
-      setGraphMode('schema');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [customSchema]);
-
-  const handleTraceLineage = useCallback(async (table: string, column: string): Promise<void> => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableName: table, columnName: column, schema: customSchema ?? undefined }),
-      });
-
-      const data = (await response.json()) as AnalyzeResponse & { error?: string };
-      if (!response.ok || data.error) {
-        throw new Error(data.error ?? 'No se pudo completar el análisis');
-      }
-
-      setGraph(data.graph ?? null);
-      setGraphMode('impact');
-
-      const lineage: LineageNode[] = data.lineage ?? [];
-      const dependents = lineage.filter((l) => l.relation !== 'origin');
-      const origin = lineage.find((l) => l.relation === 'origin') ?? lineage[0];
-
-      if (dependents.length > 0 && origin) {
-        setImpact({
-          risk: dependents.length > 3 ? 'HIGH' : 'MEDIUM',
-          summary: '',
-          affectedObjects: dependents.map((d) => ({
-            type: mapKindToAffected(d.kind),
-            schema: d.schema,
-            name: d.table,
-            detail: `Depende de ${origin.table}.${origin.column}`,
-          })),
-          target: { schema: origin.schema, table: origin.table, column: origin.column },
+      try {
+        const response = await fetch('/api/schema-graph', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ schema: (override ?? customSchema) ?? undefined }),
         });
-      } else {
+        const data = (await response.json()) as GraphDefinition & { error?: string };
+        if (!response.ok || data.error) {
+          throw new Error(data.error ?? 'No se pudo cargar el esquema');
+        }
+        setGraph(data);
         setImpact(null);
+        setGraphMode('schema');
+        setHasStarted(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [customSchema]);
+    },
+    [customSchema]
+  );
+
+  const handleTraceLineage = useCallback(
+    async (table: string, column: string): Promise<void> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tableName: table, columnName: column, schema: customSchema ?? undefined }),
+        });
+
+        const data = (await response.json()) as AnalyzeResponse & { error?: string };
+        if (!response.ok || data.error) {
+          throw new Error(data.error ?? 'No se pudo completar el análisis');
+        }
+
+        setGraph(data.graph ?? null);
+        setGraphMode('impact');
+        setHasStarted(true);
+
+        const lineage: LineageNode[] = data.lineage ?? [];
+        const dependents = lineage.filter((l) => l.relation !== 'origin');
+        const origin = lineage.find((l) => l.relation === 'origin') ?? lineage[0];
+
+        if (dependents.length > 0 && origin) {
+          setImpact({
+            risk: dependents.length > 3 ? 'HIGH' : 'MEDIUM',
+            summary: '',
+            affectedObjects: dependents.map((d) => ({
+              type: mapKindToAffected(d.kind),
+              schema: d.schema,
+              name: d.table,
+              detail: `Depende de ${origin.table}.${origin.column}`,
+            })),
+            target: { schema: origin.schema, table: origin.table, column: origin.column },
+          });
+        } else {
+          setImpact(null);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [customSchema]
+  );
 
   const handleChatResult = useCallback(
     (newGraph: GraphDefinition | null, newImpact: DdlImpact | null): void => {
@@ -147,61 +161,95 @@ export default function HomePage(): JSX.Element {
     <div className="flex h-screen flex-col overflow-hidden bg-cream text-ink">
       <Header />
 
-      <div className="flex min-h-0 flex-1">
-      {/* Panel izquierdo */}
-      <aside className="flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white">
-        <div className="flex border-b border-stone-200">
-          <TabButton
-            active={tab === 'chat'}
-            onClick={() => setTab('chat')}
-            icon={<MessageSquare className="h-4 w-4" />}
-            label="Chat"
-          />
-          <TabButton
-            active={tab === 'db'}
-            onClick={() => {
-              setTab('db');
-              void loadSchemaGraph();
-            }}
-            icon={<Database className="h-4 w-4" />}
-            label="Base de datos"
-          />
-        </div>
-
-        <div className="min-h-0 flex-1">
-          {tab === 'chat' ? (
-            <ChatPanel onResult={handleChatResult} schema={customSchema} />
-          ) : (
-            <DatabaseExplorer
-              schema={customSchema}
-              onLoadSchema={handleLoadSchema}
-              onClearSchema={handleClearSchema}
-            />
-          )}
-        </div>
-
-        <Accordion title="Explorar dependencias" icon={<GitBranch className="h-4 w-4" />}>
-          <div className="p-4 pt-0">
-            <p className="mb-3 text-xs leading-relaxed text-stone-500">
-              Elige una tabla y columna para ver qué la usa.
-            </p>
-            <SchemaSelector onSelect={handleTraceLineage} schema={customSchema} />
-          </div>
-        </Accordion>
-      </aside>
-
-      {/* Panel principal: grafo */}
-      <main className="relative flex min-w-0 flex-1 flex-col">
-        <div className="relative flex-1">
-          {error && (
-            <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
-              {error}
+      <div
+        className={
+          hasStarted
+            ? 'flex min-h-0 flex-1'
+            : 'flex min-h-0 flex-1 items-center justify-center p-6'
+        }
+      >
+        {/* Chat: centrado (hero) o sidebar */}
+        <motion.div
+          layout
+          transition={springTransition}
+          className={
+            hasStarted
+              ? 'flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white'
+              : 'w-full max-w-2xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm'
+          }
+        >
+          {hasStarted && (
+            <div className="flex border-b border-stone-200">
+              <TabButton
+                active={tab === 'chat'}
+                onClick={() => setTab('chat')}
+                icon={<MessageSquare className="h-4 w-4" />}
+                label="Chat"
+              />
+              <TabButton
+                active={tab === 'db'}
+                onClick={() => {
+                  setTab('db');
+                  void loadSchemaGraph();
+                }}
+                icon={<Database className="h-4 w-4" />}
+                label="Base de datos"
+              />
             </div>
           )}
-          <ImpactGraph graph={graph} loading={loading} mode={graphMode} />
-          {impact && <ImpactSummary impact={impact} />}
-        </div>
-      </main>
+
+          <div className={hasStarted ? 'min-h-0 flex-1' : ''}>
+            {hasStarted && tab === 'db' ? (
+              <DatabaseExplorer
+                schema={customSchema}
+                onLoadSchema={handleLoadSchema}
+                onClearSchema={handleClearSchema}
+              />
+            ) : (
+              <ChatPanel
+                onResult={handleChatResult}
+                schema={customSchema}
+                onStart={() => setHasStarted(true)}
+                expanded={hasStarted}
+              />
+            )}
+          </div>
+
+          {hasStarted && (
+            <Accordion title="Explorar dependencias" icon={<GitBranch className="h-4 w-4" />}>
+              <div className="p-4 pt-0">
+                <p className="mb-3 text-xs leading-relaxed text-stone-500">
+                  Elige una tabla y columna para ver qué la usa.
+                </p>
+                <SchemaSelector onSelect={handleTraceLineage} schema={customSchema} />
+              </div>
+            </Accordion>
+          )}
+        </motion.div>
+
+        {/* Panel derecho: grafo */}
+        <AnimatePresence>
+          {hasStarted && (
+            <motion.main
+              key="graph"
+              initial={{ opacity: 0, x: 60 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 60 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+              className="relative flex min-w-0 flex-1 flex-col"
+            >
+              <div className="relative flex-1">
+                {error && (
+                  <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+                    {error}
+                  </div>
+                )}
+                <ImpactGraph graph={graph} loading={loading} mode={graphMode} />
+                {impact && <ImpactSummary impact={impact} />}
+              </div>
+            </motion.main>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -297,9 +345,7 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
   );
 }
 
-function mapKindToAffected(
-  kind: string
-): 'column' | 'table' | 'view' | 'foreign_key' | 'routine' {
+function mapKindToAffected(kind: string): 'column' | 'table' | 'view' | 'foreign_key' | 'routine' {
   if (kind === 'view' || kind === 'routine' || kind === 'foreign_key' || kind === 'table') {
     return kind;
   }
