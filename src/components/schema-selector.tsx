@@ -60,7 +60,7 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
   }, [onSelect, selectedTable, selectedColumn]);
 
   if (loading) {
-    return <div className="text-sm text-slate-500">Loading schema…</div>;
+    return <div className="text-sm text-slate-500">Cargando esquema…</div>;
   }
 
   if (error) {
@@ -70,13 +70,13 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Table</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700">Tabla</label>
         <select
           value={selectedTableId}
           onChange={(e) => handleTableChange(e.target.value)}
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
         >
-          <option value="">Select a table</option>
+          <option value="">Selecciona una tabla</option>
           {schema?.tables.map((table) => (
             <option key={`${table.schema}.${table.name}`} value={`${table.schema}.${table.name}`}>
               {table.schema}.{table.name}
@@ -86,14 +86,14 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-700">Column</label>
+        <label className="mb-1 block text-xs font-medium text-slate-700">Columna</label>
         <select
           value={selectedColumn}
           onChange={(e) => setSelectedColumn(e.target.value)}
           disabled={!selectedTable}
           className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
         >
-          <option value="">Select a column</option>
+          <option value="">Selecciona una columna</option>
           {selectedTable?.columns.map((column) => (
             <option key={column.column_name} value={column.column_name}>
               {column.column_name} ({column.data_type})
@@ -109,7 +109,7 @@ export function SchemaSelector({ onSelect }: SchemaSelectorProps): JSX.Element {
         className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
       >
         <ChevronRight className="h-4 w-4" />
-        Trace Lineage
+        Rastrear linaje
       </button>
     </div>
   );

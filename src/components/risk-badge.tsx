@@ -2,6 +2,12 @@ export interface RiskBadgeProps {
   level: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
+const labels: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
+  HIGH: 'Riesgo alto',
+  MEDIUM: 'Riesgo medio',
+  LOW: 'Riesgo bajo',
+};
+
 export function RiskBadge({ level }: RiskBadgeProps): JSX.Element {
   const styles = {
     HIGH: 'bg-red-50 text-red-700 border-red-200',
@@ -13,7 +19,7 @@ export function RiskBadge({ level }: RiskBadgeProps): JSX.Element {
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${styles[level]}`}
     >
-      {level}
+      {labels[level]}
     </span>
   );
 }

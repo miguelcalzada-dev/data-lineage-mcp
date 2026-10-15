@@ -90,7 +90,7 @@ export default function HomePage(): JSX.Element {
         <section className="flex w-96 flex-col bg-white">
           <div className="border-b border-slate-200 px-4 py-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Migration Input
+              Entrada de migración
             </h2>
           </div>
 
@@ -104,21 +104,21 @@ export default function HomePage(): JSX.Element {
 
             <div className="mt-6">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Quick Prompts
+                Ejemplos rápidos
               </h3>
               <div className="space-y-2">
                 <QuickPrompt
-                  label="Drop email from users"
+                  label="Eliminar email de users"
                   ddl="ALTER TABLE users DROP COLUMN email"
                   onClick={handleQuickPrompt}
                 />
                 <QuickPrompt
-                  label="Rename price in products"
+                  label="Renombrar price en products"
                   ddl="ALTER TABLE products RENAME COLUMN price TO unit_price"
                   onClick={handleQuickPrompt}
                 />
                 <QuickPrompt
-                  label="Drop customers table"
+                  label="Eliminar tabla customers"
                   ddl="DROP TABLE customers"
                   onClick={handleQuickPrompt}
                 />
@@ -127,7 +127,7 @@ export default function HomePage(): JSX.Element {
 
             <div className="mt-6">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Trace Lineage
+                Rastrear linaje
               </h3>
               <SchemaSelector onSelect={handleTraceLineage} />
             </div>
@@ -138,7 +138,7 @@ export default function HomePage(): JSX.Element {
         <section className="flex min-w-0 flex-1 flex-col bg-white">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Dependency Graph
+              Grafo de dependencias
             </h2>
             {impact && (
               <span
@@ -150,7 +150,11 @@ export default function HomePage(): JSX.Element {
                     : 'bg-emerald-50 text-emerald-700'
                 }`}
               >
-                {impact.risk} RISK
+                {impact.risk === 'HIGH'
+                  ? 'Riesgo alto'
+                  : impact.risk === 'MEDIUM'
+                  ? 'Riesgo medio'
+                  : 'Riesgo bajo'}
               </span>
             )}
           </div>
@@ -169,7 +173,7 @@ export default function HomePage(): JSX.Element {
         <section className="flex w-96 flex-col bg-white">
           <div className="border-b border-slate-200 px-4 py-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              MCP Live Inspector
+              Inspector MCP en vivo
             </h2>
           </div>
           <div className="flex-1 overflow-hidden">

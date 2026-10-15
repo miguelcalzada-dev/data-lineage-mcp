@@ -44,8 +44,8 @@ export function Header(): JSX.Element {
           <Activity className="h-4 w-4 text-slate-700" />
         </div>
         <div>
-          <h1 className="text-sm font-semibold text-slate-900">Data Lineage & Impact Analyzer</h1>
-          <p className="text-xs text-slate-500">MCP-powered PostgreSQL impact analysis</p>
+          <h1 className="text-sm font-semibold text-slate-900">Analizador de Linaje e Impacto de Datos</h1>
+          <p className="text-xs text-slate-500">Análisis de impacto en PostgreSQL con MCP</p>
         </div>
       </div>
 
@@ -57,7 +57,7 @@ export function Header(): JSX.Element {
         />
         <StatusBadge
           icon={<Server className="h-3 w-3" />}
-          label="MCP Tools"
+          label="Herramientas MCP"
           status={mcpStatus}
         />
       </div>
@@ -80,13 +80,19 @@ function StatusBadge({
     error: 'bg-red-50 text-red-700 border-red-200',
   };
 
+  const statusLabel: Record<'checking' | 'connected' | 'error', string> = {
+    checking: 'comprobando',
+    connected: 'conectado',
+    error: 'error',
+  };
+
   return (
     <div
       className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses[status]}`}
     >
       {icon}
       <span>{label}</span>
-      <span className="capitalize">{status === 'checking' ? '…' : status}</span>
+      <span className="capitalize">{statusLabel[status]}</span>
     </div>
   );
 }

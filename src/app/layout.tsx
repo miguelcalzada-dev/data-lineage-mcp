@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Data Lineage & Impact Analyzer',
-  description: 'Predict breaking changes and visualize PostgreSQL data lineage with MCP.',
+  title: 'Analizador de Linaje e Impacto de Datos',
+  description: 'Predice cambios que rompen la base de datos y visualiza el linaje de datos con MCP.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {
