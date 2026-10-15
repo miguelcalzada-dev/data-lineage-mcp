@@ -58,6 +58,18 @@ export function ChatPanel({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent): void => {
+      if (el.scrollHeight <= el.clientHeight + 2) {
+        event.preventDefault();
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   async function send(text?: string): Promise<void> {
     const content = (text ?? input).trim();
     if (!content || loading) return;
@@ -188,12 +200,6 @@ export function ChatPanel({
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 void send();
-              }
-            }}
-            onWheel={(e) => {
-              const el = e.currentTarget;
-              if (el.scrollHeight <= el.clientHeight + 1) {
-                e.preventDefault();
               }
             }}
             rows={1}

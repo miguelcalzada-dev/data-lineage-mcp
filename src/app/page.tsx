@@ -9,6 +9,7 @@ import { DatabaseExplorer } from '@/components/database-explorer';
 import { ImpactGraph } from '@/components/impact-graph';
 import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
+import { FluidTabs } from '@/components/fluid-tabs';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
@@ -184,12 +185,11 @@ export default function HomePage(): JSX.Element {
               animate={{ opacity: 1, y: 0 }}
               className="rounded-2xl border border-stone-200 bg-white px-8 py-7 text-center shadow-sm"
             >
-              <h1 className="font-display text-4xl font-bold text-orange-600">
+              <h1 className="font-display text-5xl font-bold text-orange-600">
                 Explora el impacto de tus cambios
               </h1>
-              <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-stone-500">
-                Pregunta en lenguaje natural y descubre qué se rompería en tu base de datos antes de
-                aplicarlo.
+              <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-stone-500">
+                Pregunta en lenguaje natural y descubre qué se rompería antes de aplicarlo.
               </p>
             </motion.div>
           )}
@@ -202,21 +202,18 @@ export default function HomePage(): JSX.Element {
             }
           >
             {hasStarted && (
-              <div className="flex border-b border-stone-200">
-                <TabButton
-                  active={tab === 'chat'}
-                  onClick={() => setTab('chat')}
-                  icon={<MessageSquare className="h-4 w-4" />}
-                  label="Chat"
-                />
-                <TabButton
-                  active={tab === 'db'}
-                  onClick={() => {
-                    setTab('db');
-                    void loadSchemaGraph();
+              <div className="border-b border-stone-200 p-2">
+                <FluidTabs
+                  active={tab}
+                  onChange={(id) => {
+                    const next = id as Tab;
+                    setTab(next);
+                    if (next === 'db') void loadSchemaGraph();
                   }}
-                  icon={<Database className="h-4 w-4" />}
-                  label="Base de datos"
+                  tabs={[
+                    { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-4 w-4" /> },
+                    { id: 'db', label: 'Base de datos', icon: <Database className="h-4 w-4" /> },
+                  ]}
                 />
               </div>
             )}
