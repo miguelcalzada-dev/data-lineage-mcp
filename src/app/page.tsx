@@ -15,6 +15,7 @@ import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import type { GraphMode } from '@/components/impact-graph';
 import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
+import { useSpotlight } from '@/lib/use-spotlight';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -37,6 +38,7 @@ export default function HomePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [graphMode, setGraphMode] = useState<GraphMode>('impact');
   const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(null);
+  const spotlight = useSpotlight();
 
   useEffect(() => {
     try {
@@ -183,24 +185,34 @@ export default function HomePage(): JSX.Element {
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-stone-200 bg-white px-8 py-7 text-center shadow-sm"
+              className="text-center"
             >
-              <h1 className="font-display text-5xl font-bold text-orange-600">
+              <h1 className="font-mono text-2xl font-bold italic tracking-tight text-orange-600">
                 Explora el impacto de tus cambios
               </h1>
-              <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-stone-500">
-                Pregunta en lenguaje natural y descubre qué se rompería antes de aplicarlo.
+              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-500">
+                Pregunta en lenguaje natural y descubre qué se rompería en tu base de datos antes de
+                aplicarlo.
               </p>
             </motion.div>
           )}
 
           <div
+            ref={spotlight.ref}
+            {...(hasStarted ? {} : spotlight.handlers)}
             className={
               hasStarted
                 ? 'flex min-h-0 flex-1 flex-col'
-                : 'overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm'
+                : 'relative overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm'
             }
           >
+            {!hasStarted && (
+              <div
+                className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300"
+                style={spotlight.overlayStyle}
+              />
+            )}
+            <div className={hasStarted ? 'contents' : 'relative z-10'}>
             {hasStarted && (
               <div className="border-b border-stone-200 p-2">
                 <FluidTabs
@@ -246,6 +258,7 @@ export default function HomePage(): JSX.Element {
                 </div>
               </Accordion>
             )}
+            </div>
           </div>
         </motion.div>
 

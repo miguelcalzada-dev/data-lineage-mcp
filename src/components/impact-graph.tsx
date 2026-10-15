@@ -235,36 +235,23 @@ function CustomNode({
     ? 'text-stone-900'
     : 'text-stone-700';
 
-  const badge = data.affected
-    ? { text: 'Afectado', cls: 'bg-orange-100 text-orange-700' }
-    : data.isOrigin
-    ? { text: 'Cambio', cls: 'bg-stone-200 text-stone-700' }
-    : null;
-
   return (
-    <div className={`min-w-[160px] rounded-lg border p-3 shadow-sm ${borderColor}`}>
-      <Handle type="target" position={Position.Left} className="!bg-stone-400" />
-      <div className="flex items-center gap-2">
+    <div className={`box-border w-[190px] rounded-lg border px-3 py-2.5 shadow-sm ${borderColor}`}>
+      <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+      <div className="flex items-center gap-2.5">
         <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${borderColor} ${textColor}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${borderColor} ${textColor}`}
         >
           {icon}
         </span>
         <div className="min-w-0 flex-1">
-          <p className={`truncate text-xs font-semibold ${textColor}`}>{data.label}</p>
+          <p className={`truncate text-xs font-semibold leading-tight ${textColor}`}>{data.label}</p>
           <p className="truncate text-[10px] uppercase tracking-wide text-stone-400">
             {typeLabel[data.type] ?? data.type}
           </p>
         </div>
       </div>
-      {badge && (
-        <div className="mt-2">
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
-            {badge.text}
-          </span>
-        </div>
-      )}
-      <Handle type="source" position={Position.Right} className="!bg-stone-400" />
+      <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
     </div>
   );
 }
