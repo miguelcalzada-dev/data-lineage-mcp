@@ -4,25 +4,30 @@ import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { apiPath } from '@/lib/api';
 
+type Status = 'checking' | 'connected' | 'error' | 'disabled';
+
+interface HealthResponse {
+  db?: { ok: boolean; error?: string };
+  mcp?: { ok: boolean; configured?: boolean; error?: string };
+}
+
 export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.Element {
-  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
-  const [mcpStatus, setMcpStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [dbStatus, setDbStatus] = useState<Status>('checking');
+  const [mcpStatus, setMcpStatus] = useState<Status>('checking');
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkHealth(): Promise<void> {
       try {
-        const response = await fetch(apiPath('/api/analyze'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ includeSchema: true }),
-        });
-        if (!cancelled) {
-          const healthy = response.ok;
-          setDbStatus(healthy ? 'connected' : 'error');
-          setMcpStatus(healthy ? 'connected' : 'error');
-        }
+        const response = await fetch(apiPath('/api/health'), { cache: 'no-store' });
+        const data = (await response.json()) as HealthResponse;
+        if (cancelled) return;
+
+        setDbStatus(data.db?.ok ? 'connected' : 'error');
+        if (!data.mcp) setMcpStatus('disabled');
+        else if (!data.mcp.configured) setMcpStatus('disabled');
+        else setMcpStatus(data.mcp.ok ? 'connected' : 'error');
       } catch {
         if (!cancelled) {
           setDbStatus('error');
@@ -32,12 +37,14 @@ export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.El
     }
 
     void checkHealth();
+    const interval = setInterval(() => void checkHealth(), 30000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 
-  const dotClass = (status: 'checking' | 'connected' | 'error'): string =>
+  const dotClass = (status: Status): string =>
     status === 'connected'
       ? 'bg-emerald-500'
       : status === 'error'
@@ -53,11 +60,11 @@ export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.El
       <div className="pointer-events-auto">
         <ThemeToggle />
       </div>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-1.5" title={`Base de datos: ${dbStatus}`}>
         <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
         Supabase
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-1.5" title={`MCP: ${mcpStatus}`}>
         <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
         MCP
       </span>

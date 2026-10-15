@@ -1,4 +1,5 @@
-import { traceColumnLineage, type LineageNode } from '@/mcp/utils/postgres-inspector';
+import { getFullSchema, type LineageNode } from '@/mcp/utils/postgres-inspector';
+import { traceLineage, findTableByName, findColumnByName } from '@/mcp/utils/schema-analyzer';
 import type { McpTool } from './types';
 
 export interface GraphNode {
@@ -23,6 +24,10 @@ export interface GraphDefinition {
   edges: GraphEdge[];
 }
 
+function makeId(node: LineageNode): string {
+  return `${node.schema}.${node.table}${node.column && node.column !== '*' ? `.${node.column}` : ''}`;
+}
+
 export const generateGraphTool: McpTool = {
   name: 'generate_graph_definition',
   description:
@@ -43,6 +48,10 @@ export const generateGraphTool: McpTool = {
         type: 'string',
         description: 'Source column name (used if lineage is not provided)',
       },
+      schema: {
+        type: 'string',
+        description: 'Optional schema name',
+      },
       affectedObjectNames: {
         type: 'array',
         description: 'Names of objects considered affected (for highlighting)',
@@ -50,15 +59,24 @@ export const generateGraphTool: McpTool = {
       },
     },
   },
-  async execute(args) {
+  async execute(args, context) {
     try {
       let lineage: LineageNode[];
 
       if (Array.isArray(args.lineage)) {
         lineage = args.lineage as LineageNode[];
       } else if (typeof args.tableName === 'string' && typeof args.columnName === 'string') {
-        const schema = typeof args.schema === 'string' ? args.schema : 'public';
-        lineage = await traceColumnLineage(args.tableName, args.columnName, schema);
+        const schemaName =
+          typeof args.schema === 'string' ? args.schema : context?.targetSchema ?? 'public';
+        const schema = context?.schema ?? (await getFullSchema(context?.targetSchema));
+        if (
+          !findTableByName(schema, args.tableName) ||
+          !findColumnByName(schema, args.tableName, args.columnName)
+        ) {
+          lineage = [];
+        } else {
+          lineage = traceLineage(schema, args.tableName, args.columnName, schemaName);
+        }
       } else {
         return {
           content: [
@@ -80,21 +98,18 @@ export const generateGraphTool: McpTool = {
       );
 
       const nodes: GraphNode[] = [];
-      const edges: GraphEdge[] = [];
       const nodeIds = new Set<string>();
-
-      const origin = lineage.find((node) => node.relation === 'origin') ?? lineage[0];
-
-      const makeId = (node: LineageNode) =>
-        `${node.schema}.${node.table}${node.column && node.column !== '*' ? `.${node.column}` : ''}`;
+      const idByTable = new Map<string, string>();
 
       for (const node of lineage) {
         const id = makeId(node);
         if (nodeIds.has(id)) continue;
         nodeIds.add(id);
+        idByTable.set(`${node.schema}.${node.table}`, id);
 
         const name = `${node.table}${node.column && node.column !== '*' ? `.${node.column}` : ''}`;
-        const isAffected = affectedSet.has(node.table.toLowerCase()) || affectedSet.has(name.toLowerCase());
+        const isAffected =
+          affectedSet.has(node.table.toLowerCase()) || affectedSet.has(name.toLowerCase());
 
         nodes.push({
           id,
@@ -105,16 +120,31 @@ export const generateGraphTool: McpTool = {
           column: node.column,
           affected: isAffected,
         });
+      }
 
-        if (origin && node.relation && node.relation !== 'origin') {
-          const originId = makeId(origin);
-          edges.push({
-            id: `${originId}->${id}`,
-            source: originId,
-            target: id,
-            label: node.relation,
-          });
-        }
+      const origin = lineage.find((node) => node.relation === 'origin') ?? lineage[0];
+      const originKey = origin ? `${origin.schema}.${origin.table}` : undefined;
+      const originId = originKey ? idByTable.get(originKey) : undefined;
+
+      const edges: GraphEdge[] = [];
+      const edgeIds = new Set<string>();
+
+      for (const node of lineage) {
+        if (!node.relation || node.relation === 'origin') continue;
+        const targetId = idByTable.get(`${node.schema}.${node.table}`);
+        if (!targetId) continue;
+        const sourceId =
+          (node.via ? idByTable.get(node.via) : undefined) ?? originId ?? originKey;
+        if (!sourceId) continue;
+        const edgeId = `${sourceId}->${targetId}`;
+        if (edgeIds.has(edgeId)) continue;
+        edgeIds.add(edgeId);
+        edges.push({
+          id: edgeId,
+          source: sourceId,
+          target: targetId,
+          label: node.relation,
+        });
       }
 
       const graph: GraphDefinition = { nodes, edges };

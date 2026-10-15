@@ -1,5 +1,12 @@
 import { Pool, PoolClient } from 'pg';
 import { traceLineage, predictImpact } from '@/mcp/utils/schema-analyzer';
+import { SCHEMA_CONTRACT_VERSION } from '@/mcp/utils/schema-contract';
+
+export { SCHEMA_CONTRACT_VERSION };
+
+const SYSTEM_SCHEMAS = ['pg_catalog', 'information_schema', 'auth', 'storage', 'extensions'];
+const SCHEMA_CACHE_TTL_MS = Number(process.env.SCHEMA_CACHE_TTL_MS ?? 30000);
+const STATEMENT_TIMEOUT_MS = Number(process.env.PG_STATEMENT_TIMEOUT_MS ?? 10000);
 
 let pool: Pool | null = null;
 
@@ -16,6 +23,11 @@ function getPool(): Pool {
   pool = new Pool({
     connectionString,
     ssl: connectionString.includes('supabase') ? { rejectUnauthorized: false } : undefined,
+    max: Number(process.env.PG_POOL_MAX ?? 5),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    statement_timeout: STATEMENT_TIMEOUT_MS,
+    query_timeout: STATEMENT_TIMEOUT_MS,
   });
 
   return pool;
@@ -46,6 +58,8 @@ export interface ForeignKey {
   target_schema: string;
   target_table: string;
   target_column: string;
+  on_delete?: string | null;
+  on_update?: string | null;
 }
 
 export interface PrimaryKey {
@@ -70,12 +84,23 @@ export interface RoutineInfo {
   definition: string | null;
 }
 
+export interface IndexInfo {
+  schema: string;
+  table: string;
+  name: string;
+  columns: string[];
+  is_unique: boolean;
+  is_primary: boolean;
+}
+
 export interface SchemaMetadata {
+  version?: number;
   tables: TableInfo[];
   views: ViewInfo[];
   routines: RoutineInfo[];
   foreignKeys: ForeignKey[];
   primaryKeys: PrimaryKey[];
+  indexes?: IndexInfo[];
 }
 
 export interface LineageNode {
@@ -84,10 +109,12 @@ export interface LineageNode {
   column: string;
   kind: 'table' | 'view' | 'routine' | 'foreign_key';
   relation?: string;
+  via?: string;
+  depth?: number;
 }
 
 export interface AffectedObject {
-  type: 'column' | 'table' | 'view' | 'foreign_key' | 'routine';
+  type: 'column' | 'table' | 'view' | 'foreign_key' | 'routine' | 'index' | 'constraint';
   schema: string;
   name: string;
   detail: string;
@@ -119,6 +146,10 @@ async function query<T>(client: PoolClient, sql: string, params?: unknown[]): Pr
   return result.rows as T[];
 }
 
+function systemSchemaList(): string {
+  return SYSTEM_SCHEMAS.map((s) => `'${s}'`).join(', ');
+}
+
 export async function getColumns(
   client: PoolClient,
   tableSchema: string,
@@ -140,21 +171,22 @@ export async function getColumns(
   return query<ColumnInfo>(client, sql, [tableSchema, tableName]);
 }
 
-export async function getTables(client: PoolClient): Promise<TableInfo[]> {
+export async function getTables(client: PoolClient, targetSchema?: string): Promise<TableInfo[]> {
   const sql = `
     SELECT
       t.table_schema AS schema,
       t.table_name AS name,
       t.table_type AS type
     FROM information_schema.tables t
-    WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema', 'auth', 'storage', 'extensions')
+    WHERE t.table_schema NOT IN (${systemSchemaList()})
+      ${targetSchema ? 'AND t.table_schema = $1' : ''}
     ORDER BY t.table_schema, t.table_name;
   `;
   const rows = await query<{
     schema: string;
     name: string;
     type: 'BASE TABLE' | 'VIEW' | 'MATERIALIZED VIEW';
-  }>(client, sql);
+  }>(client, sql, targetSchema ? [targetSchema] : []);
 
   const tables: TableInfo[] = [];
   for (const row of rows) {
@@ -164,7 +196,7 @@ export async function getTables(client: PoolClient): Promise<TableInfo[]> {
   return tables;
 }
 
-export async function getForeignKeys(client: PoolClient): Promise<ForeignKey[]> {
+export async function getForeignKeys(client: PoolClient, targetSchema?: string): Promise<ForeignKey[]> {
   const sql = `
     SELECT
       tc.constraint_name,
@@ -173,7 +205,9 @@ export async function getForeignKeys(client: PoolClient): Promise<ForeignKey[]> 
       kcu.column_name AS source_column,
       ccu.table_schema AS target_schema,
       ccu.table_name AS target_table,
-      ccu.column_name AS target_column
+      ccu.column_name AS target_column,
+      rc.delete_rule AS on_delete,
+      rc.update_rule AS on_update
     FROM information_schema.table_constraints tc
     JOIN information_schema.key_column_usage kcu
       ON tc.constraint_name = kcu.constraint_name
@@ -181,13 +215,17 @@ export async function getForeignKeys(client: PoolClient): Promise<ForeignKey[]> 
     JOIN information_schema.constraint_column_usage ccu
       ON tc.constraint_name = ccu.constraint_name
       AND tc.table_schema = ccu.table_schema
+    LEFT JOIN information_schema.referential_constraints rc
+      ON rc.constraint_schema = tc.constraint_schema
+      AND rc.constraint_name = tc.constraint_name
     WHERE tc.constraint_type = 'FOREIGN KEY'
-      AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'auth', 'storage', 'extensions');
+      AND tc.table_schema NOT IN (${systemSchemaList()})
+      ${targetSchema ? 'AND tc.table_schema = $1' : ''};
   `;
-  return query<ForeignKey>(client, sql);
+  return query<ForeignKey>(client, sql, targetSchema ? [targetSchema] : []);
 }
 
-export async function getPrimaryKeys(client: PoolClient): Promise<PrimaryKey[]> {
+export async function getPrimaryKeys(client: PoolClient, targetSchema?: string): Promise<PrimaryKey[]> {
   const sql = `
     SELECT
       tc.table_schema AS schema,
@@ -199,7 +237,8 @@ export async function getPrimaryKeys(client: PoolClient): Promise<PrimaryKey[]> 
       ON tc.constraint_name = kcu.constraint_name
       AND tc.table_schema = kcu.table_schema
     WHERE tc.constraint_type = 'PRIMARY KEY'
-      AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'auth', 'storage', 'extensions')
+      AND tc.table_schema NOT IN (${systemSchemaList()})
+      ${targetSchema ? 'AND tc.table_schema = $1' : ''}
     ORDER BY tc.table_schema, tc.table_name, kcu.ordinal_position;
   `;
   const rows = await query<{
@@ -207,7 +246,7 @@ export async function getPrimaryKeys(client: PoolClient): Promise<PrimaryKey[]> 
     table: string;
     constraint_name: string;
     column_name: string;
-  }>(client, sql);
+  }>(client, sql, targetSchema ? [targetSchema] : []);
 
   const grouped = new Map<string, PrimaryKey>();
   for (const row of rows) {
@@ -225,20 +264,21 @@ export async function getPrimaryKeys(client: PoolClient): Promise<PrimaryKey[]> 
   return Array.from(grouped.values());
 }
 
-export async function getViews(client: PoolClient): Promise<ViewInfo[]> {
+export async function getViews(client: PoolClient, targetSchema?: string): Promise<ViewInfo[]> {
   const sql = `
     SELECT
       table_schema AS schema,
       table_name AS name,
       view_definition AS definition
     FROM information_schema.views
-    WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'auth', 'storage', 'extensions')
+    WHERE table_schema NOT IN (${systemSchemaList()})
+      ${targetSchema ? 'AND table_schema = $1' : ''}
     ORDER BY table_schema, table_name;
   `;
-  return query<ViewInfo>(client, sql);
+  return query<ViewInfo>(client, sql, targetSchema ? [targetSchema] : []);
 }
 
-export async function getRoutines(client: PoolClient): Promise<RoutineInfo[]> {
+export async function getRoutines(client: PoolClient, targetSchema?: string): Promise<RoutineInfo[]> {
   const sql = `
     SELECT
       r.routine_schema AS schema,
@@ -252,40 +292,105 @@ export async function getRoutines(client: PoolClient): Promise<RoutineInfo[]> {
       ON p.proname = r.routine_name
     LEFT JOIN pg_catalog.pg_namespace n
       ON n.oid = p.pronamespace AND n.nspname = r.routine_schema
-    WHERE r.routine_schema NOT IN ('pg_catalog', 'information_schema', 'auth', 'storage', 'extensions')
+    WHERE r.routine_schema NOT IN (${systemSchemaList()})
+      ${targetSchema ? 'AND r.routine_schema = $1' : ''}
     ORDER BY r.routine_schema, r.routine_name;
   `;
-  return query<RoutineInfo>(client, sql);
+  return query<RoutineInfo>(client, sql, targetSchema ? [targetSchema] : []);
 }
 
-export async function getFullSchema(): Promise<SchemaMetadata> {
+export async function getIndexes(client: PoolClient, targetSchema?: string): Promise<IndexInfo[]> {
+  const sql = `
+    SELECT
+      n.nspname AS schema,
+      t.relname AS table,
+      i.relname AS name,
+      ix.indisunique AS is_unique,
+      ix.indisprimary AS is_primary,
+      array_agg(a.attname ORDER BY k.ord) AS columns
+    FROM pg_index ix
+    JOIN pg_class i ON i.oid = ix.indexrelid
+    JOIN pg_class t ON t.oid = ix.indrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+    WHERE n.nspname NOT IN (${systemSchemaList()})
+      ${targetSchema ? 'AND n.nspname = $1' : ''}
+    GROUP BY n.nspname, t.relname, i.relname, ix.indisunique, ix.indisprimary
+    ORDER BY n.nspname, t.relname, i.relname;
+  `;
+  return query<IndexInfo>(client, sql, targetSchema ? [targetSchema] : []);
+}
+
+async function loadFullSchema(targetSchema?: string): Promise<SchemaMetadata> {
   return withClient(async (client) => {
-    const [tables, views, routines, foreignKeys, primaryKeys] = await Promise.all([
-      getTables(client),
-      getViews(client),
-      getRoutines(client),
-      getForeignKeys(client),
-      getPrimaryKeys(client),
+    const [tables, views, routines, foreignKeys, primaryKeys, indexes] = await Promise.all([
+      getTables(client, targetSchema),
+      getViews(client, targetSchema),
+      getRoutines(client, targetSchema),
+      getForeignKeys(client, targetSchema),
+      getPrimaryKeys(client, targetSchema),
+      getIndexes(client, targetSchema),
     ]);
 
-    return { tables, views, routines, foreignKeys, primaryKeys };
+    return {
+      version: SCHEMA_CONTRACT_VERSION,
+      tables,
+      views,
+      routines,
+      foreignKeys,
+      primaryKeys,
+      indexes,
+    };
   });
+}
+
+const schemaCache = new Map<string, { at: number; schema: SchemaMetadata }>();
+
+export function invalidateSchemaCache(): void {
+  schemaCache.clear();
+}
+
+export async function getFullSchema(targetSchema?: string): Promise<SchemaMetadata> {
+  const key = targetSchema ?? '*';
+  const cached = schemaCache.get(key);
+  const now = Date.now();
+  if (cached && now - cached.at < SCHEMA_CACHE_TTL_MS) {
+    return cached.schema;
+  }
+
+  const schema = await loadFullSchema(targetSchema);
+  schemaCache.set(key, { at: now, schema });
+  return schema;
+}
+
+export async function checkDatabase(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await withClient(async (client) => {
+      await client.query('SELECT 1');
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export async function traceColumnLineage(
   tableName: string,
   columnName: string,
   schemaName = 'public',
-  override?: SchemaMetadata
+  override?: SchemaMetadata,
+  targetSchema?: string
 ): Promise<LineageNode[]> {
-  const schema = override ?? (await getFullSchema());
+  const schema = override ?? (await getFullSchema(targetSchema));
   return traceLineage(schema, tableName, columnName, schemaName);
 }
 
 export async function predictBreakingChanges(
   ddlStatement: string,
-  override?: SchemaMetadata
+  override?: SchemaMetadata,
+  targetSchema?: string
 ): Promise<DdlImpact> {
-  const schema = override ?? (await getFullSchema());
+  const schema = override ?? (await getFullSchema(targetSchema));
   return predictImpact(schema, ddlStatement);
 }

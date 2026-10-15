@@ -1,12 +1,21 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { getSchemaTool } from '@/mcp/tools/get-schema';
 import { traceLineageTool } from '@/mcp/tools/trace-lineage';
 import { predictImpactTool } from '@/mcp/tools/predict-impact';
 import { generateGraphTool } from '@/mcp/tools/generate-graph';
-import type { McpTool } from '@/mcp/tools/types';
+import { getFullSchema, checkDatabase } from '@/mcp/utils/postgres-inspector';
+import { log } from '@/lib/logger';
+import type { McpTool, ToolContext } from '@/mcp/tools/types';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -15,6 +24,8 @@ const secretToken = process.env.MCP_SERVER_SECRET_TOKEN;
 if (!secretToken) {
   throw new Error('Missing MCP_SERVER_SECRET_TOKEN environment variable');
 }
+
+const SCHEMA_RESOURCE_URI = 'schema://current';
 
 function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization ?? '';
@@ -32,6 +43,22 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
 const tools: McpTool[] = [getSchemaTool, traceLineageTool, predictImpactTool, generateGraphTool];
 const toolMap = new Map<string, McpTool>(tools.map((tool) => [tool.name, tool]));
 
+const prompts = [
+  {
+    name: 'impact-analysis',
+    description: 'Pide un análisis de impacto para una sentencia ALTER/DROP/RENAME/TRUNCATE.',
+    arguments: [{ name: 'ddl', description: 'Sentencia DDL a analizar', required: true }],
+  },
+  {
+    name: 'column-lineage',
+    description: 'Pide el linaje (dependencias) de una columna concreta.',
+    arguments: [
+      { name: 'table', description: 'Tabla de origen', required: true },
+      { name: 'column', description: 'Columna de origen', required: true },
+    ],
+  },
+];
+
 const server = new Server(
   {
     name: 'impactdb-mcp',
@@ -40,6 +67,8 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
+      resources: {},
+      prompts: {},
     },
   }
 );
@@ -60,7 +89,84 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error(`Unknown tool: ${request.params.name}`);
   }
   const args = (request.params.arguments as Record<string, unknown>) ?? {};
-  return tool.execute(args);
+  const targetSchema = typeof args.schema === 'string' ? args.schema : undefined;
+  const context: ToolContext = { targetSchema };
+  log('info', 'mcp tool call', { tool: tool.name, targetSchema });
+  return tool.execute(args, context);
+});
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  return {
+    resources: [
+      {
+        uri: SCHEMA_RESOURCE_URI,
+        name: 'Database schema',
+        description:
+          'Esquema completo de la base de datos (tablas, columnas, claves, vistas, rutinas e índices).',
+        mimeType: 'application/json',
+      },
+    ],
+  };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  if (request.params.uri !== SCHEMA_RESOURCE_URI) {
+    throw new Error(`Unknown resource: ${request.params.uri}`);
+  }
+
+  const schema = await getFullSchema();
+  return {
+    contents: [
+      {
+        uri: SCHEMA_RESOURCE_URI,
+        mimeType: 'application/json',
+        text: JSON.stringify(schema),
+      },
+    ],
+  };
+});
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  return { prompts };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const args = (request.params.arguments ?? {}) as Record<string, string>;
+
+  if (request.params.name === 'impact-analysis') {
+    const ddl = args.ddl ?? '';
+    return {
+      description: 'Análisis de impacto de un DDL',
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: `Usa predict_breaking_changes para analizar el impacto de esta sentencia y resume el riesgo y los objetos afectados:\n\n${ddl}`,
+          },
+        },
+      ],
+    };
+  }
+
+  if (request.params.name === 'column-lineage') {
+    const table = args.table ?? '';
+    const column = args.column ?? '';
+    return {
+      description: 'Linaje de una columna',
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: `Usa trace_column_lineage para listar qué objetos dependen de ${table}.${column}, tanto directa como indirectamente.`,
+          },
+        },
+      ],
+    };
+  }
+
+  throw new Error(`Unknown prompt: ${request.params.name}`);
 });
 
 const transports = new Map<string, SSEServerTransport>();
@@ -97,11 +203,18 @@ app.post(
   }
 );
 
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok' });
+app.get('/health', async (_req: Request, res: Response) => {
+  const db = await checkDatabase();
+  if (!db.ok) {
+    log('warn', 'mcp health: database check failed', { error: db.error });
+  }
+  res.status(db.ok ? 200 : 503).json({
+    status: db.ok ? 'ok' : 'degraded',
+    database: db,
+    uptime: process.uptime(),
+  });
 });
 
 app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`MCP server listening on port ${port}`);
+  log('info', 'mcp server listening', { port });
 });

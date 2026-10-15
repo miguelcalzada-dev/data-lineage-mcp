@@ -1,24 +1,37 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Network, Upload } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
 import { DatabaseExplorer } from '@/components/database-explorer';
-import { ImpactGraph } from '@/components/impact-graph';
 import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
 import { FluidTabs } from '@/components/fluid-tabs';
+import { ErrorBoundary } from '@/components/error-boundary';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import type { GraphMode } from '@/components/impact-graph';
-import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
+import { normalizeSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
 import { apiPath } from '@/lib/api';
 import { GradientText } from '@/components/gradient-text';
 import { DATABASE_PRESETS, buildSchemaSuggestions, getPresetById, type DatabasePreset } from '@/data/schemas';
+
+const ImpactGraph = dynamic(
+  () => import('@/components/impact-graph').then((mod) => mod.ImpactGraph),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-sm text-stone-400 dark:text-night-500">
+        Cargando mapa…
+      </div>
+    ),
+  }
+);
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -40,7 +53,10 @@ export default function HomePage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [graphMode, setGraphMode] = useState<GraphMode>('impact');
-  const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(DATABASE_PRESETS[0].schema);
+  const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(
+    () => normalizeSchema(DATABASE_PRESETS[0].schema) ?? DATABASE_PRESETS[0].schema
+  );
+  const [customSchemaName, setCustomSchemaName] = useState<string | null>(null);
   const [activePresetId, setActivePresetId] = useState<string>('empresa');
   const [chatSuggestions, setChatSuggestions] = useState<string[]>(DATABASE_PRESETS[0].suggestions);
   const [isCustomSchema, setIsCustomSchema] = useState<boolean>(false);
@@ -51,12 +67,13 @@ export default function HomePage(): JSX.Element {
     try {
       const raw = window.localStorage.getItem('dlia:customSchema');
       if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (isValidSchema(parsed)) {
+        const parsed = normalizeSchema(JSON.parse(raw) as unknown);
+        if (parsed) {
           setCustomSchema(parsed);
           setIsCustomSchema(true);
           setActivePresetId('custom');
           setChatSuggestions(buildSchemaSuggestions(parsed));
+          setCustomSchemaName(window.localStorage.getItem('dlia:customSchemaName'));
         }
       }
     } catch {
@@ -64,10 +81,11 @@ export default function HomePage(): JSX.Element {
     }
   }, []);
 
-  const handleLoadSchema = useCallback((loaded: SchemaMetadata): void => {
+  const handleLoadSchema = useCallback((loaded: SchemaMetadata, name?: string): void => {
     setCustomSchema(loaded);
     setIsCustomSchema(true);
     setActivePresetId('custom');
+    setCustomSchemaName(name ?? 'Base propia');
     setChatSuggestions(buildSchemaSuggestions(loaded));
     setSchemaVersion((v) => v + 1);
     setGraph(schemaToGraph(loaded));
@@ -76,6 +94,7 @@ export default function HomePage(): JSX.Element {
     setHasStarted(true);
     try {
       window.localStorage.setItem('dlia:customSchema', JSON.stringify(loaded));
+      window.localStorage.setItem('dlia:customSchemaName', name ?? 'Base propia');
     } catch {
       // ignora errores de almacenamiento
     }
@@ -86,13 +105,15 @@ export default function HomePage(): JSX.Element {
       setActivePresetId(preset.id);
       setChatSuggestions(preset.suggestions);
       setIsCustomSchema(false);
-      setCustomSchema(preset.schema);
+      setCustomSchemaName(null);
+      setCustomSchema(normalizeSchema(preset.schema) ?? preset.schema);
       setSchemaVersion((v) => v + 1);
       setGraph(schemaToGraph(preset.schema));
       setImpact(null);
       setGraphMode('schema');
       try {
         window.localStorage.removeItem('dlia:customSchema');
+        window.localStorage.removeItem('dlia:customSchemaName');
       } catch {
         // ignora errores de almacenamiento
       }
@@ -103,6 +124,7 @@ export default function HomePage(): JSX.Element {
   const handleClearSchema = useCallback((): void => {
     try {
       window.localStorage.removeItem('dlia:customSchema');
+      window.localStorage.removeItem('dlia:customSchemaName');
     } catch {
       // ignora errores de almacenamiento
     }
@@ -119,14 +141,14 @@ export default function HomePage(): JSX.Element {
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const parsed = JSON.parse(String(reader.result)) as unknown;
-          if (!isValidSchema(parsed)) {
+          const parsed = normalizeSchema(JSON.parse(String(reader.result)) as unknown);
+          if (!parsed) {
             setError('El JSON no tiene el formato de esquema esperado.');
             return;
           }
           setError(null);
           setIsCustomSchema(true);
-          handleLoadSchema(parsed);
+          handleLoadSchema(parsed, file.name.replace(/\.[^.]+$/, ''));
         } catch {
           setError('No se pudo leer el archivo JSON.');
         }
@@ -224,8 +246,11 @@ export default function HomePage(): JSX.Element {
   );
 
   const activeDatabaseLabel = isCustomSchema
-    ? 'Base propia (JSON)'
+    ? customSchemaName ?? 'Base propia (JSON)'
     : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
+  const conversationKey = isCustomSchema
+    ? `custom:${customSchemaName ?? 'json'}`
+    : activePresetId;
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-night-100">
@@ -286,6 +311,7 @@ export default function HomePage(): JSX.Element {
                     setTab(next);
                     if (next === 'db') void loadSchemaGraph();
                   }}
+                  ariaLabel="Secciones"
                   tabs={[
                     { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-4 w-4" /> },
                     { id: 'db', label: 'Base de datos', icon: <Database className="h-4 w-4" /> },
@@ -306,16 +332,19 @@ export default function HomePage(): JSX.Element {
                   isCustom={isCustomSchema}
                 />
               ) : (
-                <ChatPanel
-                  key={schemaVersion}
-                  onResult={handleChatResult}
-                  schema={customSchema}
-                  onStart={() => setHasStarted(true)}
-                  expanded={hasStarted}
-                  hideTitle={!hasStarted}
-                  suggestions={chatSuggestions}
-                  databaseLabel={activeDatabaseLabel}
-                />
+                <ErrorBoundary label="chat">
+                  <ChatPanel
+                    key={schemaVersion}
+                    onResult={handleChatResult}
+                    schema={customSchema}
+                    onStart={() => setHasStarted(true)}
+                    expanded={hasStarted}
+                    hideTitle={!hasStarted}
+                    suggestions={chatSuggestions}
+                    databaseLabel={activeDatabaseLabel}
+                    conversationKey={conversationKey}
+                  />
+                </ErrorBoundary>
               )}
             </div>
 
@@ -341,6 +370,7 @@ export default function HomePage(): JSX.Element {
                     const preset = DATABASE_PRESETS.find((p) => p.id === id);
                     if (preset) handleSelectPreset(preset);
                   }}
+                  ariaLabel="Bases de datos de ejemplo"
                   tabs={DATABASE_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
                 />
               </div>
@@ -380,7 +410,9 @@ export default function HomePage(): JSX.Element {
                     {error}
                   </div>
                 )}
-                <ImpactGraph graph={graph} loading={loading} mode={graphMode} />
+                <ErrorBoundary label="graph">
+                  <ImpactGraph graph={graph} loading={loading} mode={graphMode} />
+                </ErrorBoundary>
                 {impact && <ImpactSummary impact={impact} />}
               </div>
             </motion.main>
@@ -388,33 +420,6 @@ export default function HomePage(): JSX.Element {
         </AnimatePresence>
       </div>
     </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  label: string;
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition ${
-        active
-          ? 'border-orange-600 text-stone-900'
-          : 'border-transparent text-stone-500 hover:text-stone-700'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 

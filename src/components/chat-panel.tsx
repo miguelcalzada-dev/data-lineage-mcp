@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Network, RotateCcw } from 'lucide-react';
+import { ArrowUp, Network, RotateCcw, Copy, Check, RefreshCw } from 'lucide-react';
 import { TypingText } from '@/components/typing-text';
 import { Spinner } from '@/components/spinner';
 import { Markdown } from '@/components/markdown';
@@ -68,6 +68,12 @@ function pickSuggestions(pool: string[], count: number): string[] {
   return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (typeof value !== 'object' || value === null) return false;
+  const m = value as Record<string, unknown>;
+  return (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string';
+}
+
 export interface ChatPanelProps {
   onResult: (graph: GraphDefinition | null, impact: DdlImpact | null) => void;
   schema?: SchemaMetadata | null;
@@ -76,6 +82,7 @@ export interface ChatPanelProps {
   hideTitle?: boolean;
   suggestions?: string[];
   databaseLabel?: string;
+  conversationKey?: string;
 }
 
 export function ChatPanel({
@@ -86,12 +93,14 @@ export function ChatPanel({
   hideTitle = false,
   suggestions: suggestionSource,
   databaseLabel,
+  conversationKey,
 }: ChatPanelProps): JSX.Element {
   const pool = suggestionSource && suggestionSource.length > 0 ? suggestionSource : SUGGESTION_POOL;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
   const [suggestions, setSuggestions] = useState<string[]>(() => pool.slice(0, 3));
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -104,6 +113,17 @@ export function ChatPanel({
   useEffect(() => {
     setSuggestions(pickSuggestions(pool, 3));
   }, [pool]);
+
+  useEffect(() => {
+    if (!conversationKey) return;
+    try {
+      const raw = window.localStorage.getItem(`dlia:chat:${conversationKey}`);
+      const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+      setMessages(Array.isArray(parsed) ? parsed.filter(isChatMessage) : []);
+    } catch {
+      setMessages([]);
+    }
+  }, [conversationKey]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -124,18 +144,18 @@ export function ChatPanel({
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  async function send(text?: string): Promise<void> {
-    const content = (text ?? input).trim();
-    if (!content || loading) return;
+  function persist(next: ChatMessage[]): void {
+    if (!conversationKey) return;
+    try {
+      window.localStorage.setItem(`dlia:chat:${conversationKey}`, JSON.stringify(next.slice(-50)));
+    } catch {
+      // ignora errores de almacenamiento
+    }
+  }
 
-    const isFirst = messages.length === 0;
-    const next: ChatMessage[] = [...messages, { role: 'user', content }];
-    setMessages(next);
-    setInput('');
+  async function request(history: ChatMessage[]): Promise<void> {
     setLoading(true);
     setError(null);
-    setSuggestions(pickSuggestions(pool, 3));
-    if (isFirst && onStart) onStart();
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -145,7 +165,7 @@ export function ChatPanel({
       const res = await fetch(apiPath('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next, schema }),
+        body: JSON.stringify({ messages: history, schema }),
         signal: controller.signal,
       });
       const data = (await res.json()) as {
@@ -161,7 +181,12 @@ export function ChatPanel({
         throw new Error(data.error);
       }
 
-      setMessages([...next, { role: 'assistant', content: data.reply ?? 'No obtuve respuesta.' }]);
+      const withReply: ChatMessage[] = [
+        ...history,
+        { role: 'assistant', content: data.reply ?? 'No obtuve respuesta.' },
+      ];
+      setMessages(withReply);
+      persist(withReply);
       onResult(data.graph ?? null, data.impact ?? null);
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -174,15 +199,50 @@ export function ChatPanel({
     }
   }
 
+  async function send(text?: string): Promise<void> {
+    const content = (text ?? input).trim();
+    if (!content || loading) return;
+
+    const isFirst = messages.length === 0;
+    const next: ChatMessage[] = [...messages, { role: 'user', content }];
+    setMessages(next);
+    persist(next);
+    setInput('');
+    setSuggestions(pickSuggestions(pool, 3));
+    if (isFirst && onStart) onStart();
+
+    await request(next);
+  }
+
+  function retry(): void {
+    if (loading || messages.length === 0) return;
+    void request(messages);
+  }
+
+  async function share(): Promise<void> {
+    const last = [...messages].reverse().find((m) => m.role === 'assistant');
+    if (!last) return;
+    try {
+      await navigator.clipboard.writeText(last.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('No se pudo copiar al portapapeles.');
+    }
+  }
+
   function clearChat(): void {
     abortRef.current?.abort();
     abortRef.current = null;
     setMessages([]);
+    persist([]);
     setError(null);
     setLoading(false);
     setSuggestions(pickSuggestions(pool, 3));
     onResult(null, null);
   }
+
+  const hasAssistant = messages.some((m) => m.role === 'assistant');
 
   return (
     <div className={expanded ? 'flex h-full flex-col' : 'flex flex-col'}>
@@ -190,15 +250,32 @@ export function ChatPanel({
         <div className="flex items-center justify-between gap-2 px-3 pt-2">
           <DatabaseBadge label={databaseLabel ?? 'Base de datos'} />
           {messages.length > 0 && (
-            <button
-              type="button"
-              onClick={clearChat}
-              title="Nueva conversación"
-              aria-label="Nueva conversación"
-              className="group flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-night-500 dark:hover:bg-night-700 dark:hover:text-night-100"
-            >
-              <RotateCcw className="h-[15px] w-[15px] transition-transform duration-500 ease-out group-hover:-rotate-180" />
-            </button>
+            <div className="flex items-center gap-1">
+              {hasAssistant && (
+                <button
+                  type="button"
+                  onClick={() => void share()}
+                  title="Copiar último resultado"
+                  aria-label="Copiar último resultado"
+                  className="group flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-night-500 dark:hover:bg-night-700 dark:hover:text-night-100"
+                >
+                  {copied ? (
+                    <Check className="h-[15px] w-[15px]" />
+                  ) : (
+                    <Copy className="h-[15px] w-[15px]" />
+                  )}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={clearChat}
+                title="Nueva conversación"
+                aria-label="Nueva conversación"
+                className="group flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-night-500 dark:hover:bg-night-700 dark:hover:text-night-100"
+              >
+                <RotateCcw className="h-[15px] w-[15px] transition-transform duration-500 ease-out group-hover:-rotate-180" />
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -266,8 +343,17 @@ export function ChatPanel({
         )}
 
         {error && (
-          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
-            {error}
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={retry}
+              disabled={loading}
+              className="flex shrink-0 items-center gap-1 rounded-md border border-red-300 px-2 py-1 font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Reintentar
+            </button>
           </div>
         )}
       </div>

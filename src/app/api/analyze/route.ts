@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { predictBreakingChanges, traceColumnLineage, getFullSchema } from '@/mcp/utils/postgres-inspector';
 import { generateGraphTool, type GraphDefinition } from '@/mcp/tools/generate-graph';
-import { isValidSchema } from '@/mcp/utils/schema-analyzer';
+import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
 import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 function parseGraphDefinition(text: string): GraphDefinition | undefined {
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = (await req.json()) as AnalyzeRequest;
     const { ddlStatement, tableName, columnName, includeSchema, schema } = body;
-    const override = schema && isValidSchema(schema) ? schema : undefined;
+    const override = normalizeSchema(schema) ?? undefined;
 
     let impact: DdlImpact | undefined;
     let lineage: LineageNode[] | undefined;

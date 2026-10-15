@@ -3,16 +3,10 @@ import { getSchemaTool } from '@/mcp/tools/get-schema';
 import { traceLineageTool } from '@/mcp/tools/trace-lineage';
 import { predictImpactTool } from '@/mcp/tools/predict-impact';
 import { generateGraphTool } from '@/mcp/tools/generate-graph';
-import type { McpTool } from '@/mcp/tools/types';
+import type { McpTool, ToolContext } from '@/mcp/tools/types';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
-import {
-  traceLineage,
-  predictImpact,
-  isValidSchema,
-  findTableByName,
-  findColumnByName,
-} from '@/mcp/utils/schema-analyzer';
+import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_TOOL_CHARS = 4000;
@@ -130,92 +124,45 @@ function parseGraphDefinition(text: string): GraphDefinition | undefined {
   return undefined;
 }
 
-async function executeToolCall(call: GroqToolCall, override?: SchemaMetadata): Promise<ToolExecution> {
+async function executeToolCall(call: GroqToolCall, context: ToolContext): Promise<ToolExecution> {
   const name = call.function.name;
   const args = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
   const execution: ToolExecution = { content: '' };
 
-  if (override) {
-    if (name === 'get_schema_metadata') {
-      execution.content = JSON.stringify({
-        tables: override.tables.map((t) => ({
-          name: t.name,
-          columns: t.columns.map((c) => c.column_name),
-        })),
-        views: override.views.map((v) => v.name),
-      });
-    } else if (name === 'trace_column_lineage') {
-      const tableName = String(args.tableName);
-      const columnName = String(args.columnName);
-      if (!findTableByName(override, tableName)) {
-        execution.content = JSON.stringify({
-          found: false,
-          message: `La tabla "${tableName}" no existe en el esquema seleccionado.`,
-        });
-      } else if (!findColumnByName(override, tableName, columnName)) {
-        execution.content = JSON.stringify({
-          found: false,
-          message: `La columna "${columnName}" no existe en la tabla "${tableName}".`,
-        });
-      } else {
-        const lineage = traceLineage(override, tableName, columnName);
-        execution.lineage = lineage;
-        execution.content = JSON.stringify(lineage);
-      }
-    } else if (name === 'predict_breaking_changes') {
-      const impact = predictImpact(override, String(args.ddlStatement));
-      execution.impact = impact;
-      execution.content = JSON.stringify(impact);
-    } else if (name === 'generate_graph_definition') {
-      let graphArgs = args;
-      if (!Array.isArray(args.lineage) && typeof args.tableName === 'string' && typeof args.columnName === 'string') {
-        const tableName = String(args.tableName);
-        const columnName = String(args.columnName);
-        if (findTableByName(override, tableName) && findColumnByName(override, tableName, columnName)) {
-          graphArgs = { ...args, lineage: traceLineage(override, tableName, columnName) };
-        } else {
-          graphArgs = { lineage: [] };
-        }
-      }
-      const result = await generateGraphTool.execute(graphArgs);
-      execution.content = result.content[0].text;
-      execution.graph = parseGraphDefinition(execution.content);
-    } else {
-      execution.content = JSON.stringify({ error: `Herramienta desconocida: ${name}` });
-    }
-  } else {
-    const executor = toolExecutors.get(name);
-    if (!executor) {
-      return { content: JSON.stringify({ error: `Herramienta desconocida: ${name}` }) };
-    }
-
-    const result = await executor.execute(args);
-    let content = result.content.map((c) => (c.type === 'text' ? c.text : JSON.stringify(c))).join('\n');
-
-    if (name === 'generate_graph_definition') {
-      execution.graph = parseGraphDefinition(content);
-    }
-    if (name === 'predict_breaking_changes') {
-      try {
-        execution.impact = JSON.parse(content) as DdlImpact;
-      } catch {
-        execution.impact = undefined;
-      }
-    }
-    if (name === 'trace_column_lineage') {
-      try {
-        execution.lineage = JSON.parse(content) as LineageNode[];
-      } catch {
-        execution.lineage = undefined;
-      }
-    }
-    if (name === 'get_schema_metadata') {
-      content = summarizeSchema(content);
-    }
-
-    execution.content = content;
+  const executor = toolExecutors.get(name);
+  if (!executor) {
+    return { content: JSON.stringify({ error: `Herramienta desconocida: ${name}` }) };
   }
 
+  const result = await executor.execute(args, context);
+  let content = result.content
+    .map((c) => (c.type === 'text' ? c.text : JSON.stringify(c)))
+    .join('\n');
+
+  if (name === 'generate_graph_definition') {
+    execution.graph = parseGraphDefinition(content);
+  }
+  if (name === 'predict_breaking_changes') {
+    try {
+      const parsed = JSON.parse(content) as DdlImpact;
+      if (parsed && typeof parsed === 'object') execution.impact = parsed;
+    } catch {
+      execution.impact = undefined;
+    }
+  }
+  if (name === 'trace_column_lineage') {
+    try {
+      const parsed = JSON.parse(content) as unknown;
+      if (Array.isArray(parsed)) execution.lineage = parsed as LineageNode[];
+    } catch {
+      execution.lineage = undefined;
+    }
+  }
+  if (name === 'get_schema_metadata') {
+    content = summarizeSchema(content);
+  }
+
+  execution.content = content;
   if (execution.content.length > MAX_TOOL_CHARS) {
     execution.content = `${execution.content.slice(0, MAX_TOOL_CHARS)}\n… (resultado recortado)`;
   }
@@ -235,7 +182,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ reply: 'No he recibido ninguna pregunta.' });
     }
 
-    const override = body.schema && isValidSchema(body.schema) ? body.schema : undefined;
+    const override = normalizeSchema(body.schema) ?? undefined;
+    const context: ToolContext = { schema: override };
 
     const messages: GroqMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -257,7 +205,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       messages.push(assistant);
 
       for (const call of assistant.tool_calls) {
-        const execution = await executeToolCall(call, override);
+        const execution = await executeToolCall(call, context);
         if (execution.graph) graph = execution.graph;
         if (execution.impact) impact = execution.impact;
         if (execution.lineage) lineage = execution.lineage;
@@ -319,6 +267,7 @@ function buildImpactLineage(impact: DdlImpact): LineageNode[] {
     column: impact.target.column,
     kind: 'table',
     relation: 'origin',
+    depth: 0,
   };
 
   const dependents: LineageNode[] = impact.affectedObjects.map((obj) => ({
@@ -327,6 +276,7 @@ function buildImpactLineage(impact: DdlImpact): LineageNode[] {
     column: '*',
     kind: mapAffectedType(obj.type),
     relation: `affected_${obj.type}`,
+    depth: 1,
   }));
 
   return [origin, ...dependents];

@@ -4,14 +4,14 @@ import { useEffect, useState, useRef } from 'react';
 import { Table2, Eye, ChevronDown, Search, Upload, Undo2, Download, HelpCircle, X } from 'lucide-react';
 import type { SchemaMetadata, TableInfo } from '@/mcp/utils/postgres-inspector';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
-import { isValidSchema } from '@/mcp/utils/schema-analyzer';
+import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
 import { apiPath } from '@/lib/api';
 import { FluidTabs } from '@/components/fluid-tabs';
 import type { DatabasePreset } from '@/data/schemas';
 
 export interface DatabaseExplorerProps {
   schema?: SchemaMetadata | null;
-  onLoadSchema: (schema: SchemaMetadata) => void;
+  onLoadSchema: (schema: SchemaMetadata, name?: string) => void;
   onClearSchema: () => void;
   presets?: DatabasePreset[];
   activePresetId?: string;
@@ -72,12 +72,13 @@ export function DatabaseExplorer({
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result)) as unknown;
-        if (!isValidSchema(parsed)) {
+        const normalized = normalizeSchema(parsed);
+        if (!normalized) {
           setError('El JSON no tiene el formato de esquema esperado.');
           return;
         }
         setError(null);
-        onLoadSchema(parsed);
+        onLoadSchema(normalized, file.name.replace(/\.[^.]+$/, ''));
       } catch {
         setError('No se pudo leer el archivo JSON.');
       }

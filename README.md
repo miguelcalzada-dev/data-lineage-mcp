@@ -64,6 +64,9 @@ Copia `.env.example` a `.env.local` (o configura las variables en Railway):
 | `MCP_SERVER_SECRET_TOKEN` | Token para el servidor MCP |
 | `MCP_SERVER_URL` | URL del servidor MCP (si se despliega aparte) |
 | `PORT` | Puerto del servidor |
+| `SCHEMA_CACHE_TTL_MS` | TTL de la caché del esquema en ms (por defecto `30000`) |
+| `PG_STATEMENT_TIMEOUT_MS` | Timeout de sentencias PostgreSQL en ms (por defecto `10000`) |
+| `PG_POOL_MAX` | Máximo de conexiones del pool (por defecto `5`) |
 
 ---
 
@@ -80,6 +83,16 @@ Para el servidor MCP como proceso independiente:
 ```bash
 npm run mcp:server
 ```
+
+### Pruebas y verificación
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run test        # tests unitarios del analizador (node:test + tsx)
+npm run verify      # typecheck + test + build
+```
+
+El endpoint `GET /api/health` devuelve el estado real de la base de datos (`db`) y del servidor MCP (`mcp`). El servidor MCP expone a su vez `GET /health` con un `SELECT 1` contra PostgreSQL.
 
 ---
 

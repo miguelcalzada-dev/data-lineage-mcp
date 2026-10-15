@@ -4,14 +4,20 @@ import type { McpTool } from './types';
 export const getSchemaTool: McpTool = {
   name: 'get_schema_metadata',
   description:
-    'Returns full database schema metadata including tables, columns, primary keys, foreign keys, views and routines from information_schema and pg_catalog.',
+    'Returns full database schema metadata including tables, columns, primary keys, foreign keys, views, routines and indexes from information_schema and pg_catalog.',
   inputSchema: {
     type: 'object',
-    properties: {},
+    properties: {
+      schema: {
+        type: 'string',
+        description: 'Optional schema name to restrict the metadata to (e.g. public)',
+      },
+    },
   },
-  async execute() {
+  async execute(args, context) {
     try {
-      const metadata = await getFullSchema();
+      const targetSchema = context?.targetSchema ?? (args.schema ? String(args.schema) : undefined);
+      const metadata = context?.schema ?? (await getFullSchema(targetSchema));
       return {
         content: [
           {

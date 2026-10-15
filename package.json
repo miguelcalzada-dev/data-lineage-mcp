@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "mcp:server": "tsx src/mcp/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "verify": "npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

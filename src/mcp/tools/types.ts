@@ -1,3 +1,10 @@
+import type { SchemaMetadata } from '@/mcp/utils/postgres-inspector';
+
+export interface ToolContext {
+  schema?: SchemaMetadata;
+  targetSchema?: string;
+}
+
 export interface McpTool {
   name: string;
   description: string;
@@ -6,7 +13,10 @@ export interface McpTool {
     properties: Record<string, unknown>;
     required?: string[];
   };
-  execute(args: Record<string, unknown>): Promise<{
+  execute(
+    args: Record<string, unknown>,
+    context?: ToolContext
+  ): Promise<{
     content: Array<{ type: 'text'; text: string }>;
     isError?: boolean;
   }>;
