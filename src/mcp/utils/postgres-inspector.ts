@@ -214,7 +214,7 @@ export async function getForeignKeys(client: PoolClient, targetSchema?: string):
       AND tc.table_schema = kcu.table_schema
     JOIN information_schema.constraint_column_usage ccu
       ON tc.constraint_name = ccu.constraint_name
-      AND tc.table_schema = ccu.table_schema
+      AND tc.constraint_schema = ccu.constraint_schema
     LEFT JOIN information_schema.referential_constraints rc
       ON rc.constraint_schema = tc.constraint_schema
       AND rc.constraint_name = tc.constraint_name
@@ -288,10 +288,10 @@ export async function getRoutines(client: PoolClient, targetSchema?: string): Pr
       r.external_language AS language,
       p.prosrc AS definition
     FROM information_schema.routines r
-    LEFT JOIN pg_catalog.pg_proc p
-      ON p.proname = r.routine_name
     LEFT JOIN pg_catalog.pg_namespace n
-      ON n.oid = p.pronamespace AND n.nspname = r.routine_schema
+      ON n.nspname = r.routine_schema
+    LEFT JOIN pg_catalog.pg_proc p
+      ON p.proname = r.routine_name AND p.pronamespace = n.oid
     WHERE r.routine_schema NOT IN (${systemSchemaList()})
       ${targetSchema ? 'AND r.routine_schema = $1' : ''}
     ORDER BY r.routine_schema, r.routine_name;
@@ -307,13 +307,12 @@ export async function getIndexes(client: PoolClient, targetSchema?: string): Pro
       i.relname AS name,
       ix.indisunique AS is_unique,
       ix.indisprimary AS is_primary,
-      array_agg(a.attname ORDER BY k.ord) AS columns
+      array_agg(a.attname) AS columns
     FROM pg_index ix
     JOIN pg_class i ON i.oid = ix.indexrelid
     JOIN pg_class t ON t.oid = ix.indrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace
-    JOIN unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
-    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+    JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
     WHERE n.nspname NOT IN (${systemSchemaList()})
       ${targetSchema ? 'AND n.nspname = $1' : ''}
     GROUP BY n.nspname, t.relname, i.relname, ix.indisunique, ix.indisprimary

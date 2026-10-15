@@ -246,11 +246,8 @@ export default function HomePage(): JSX.Element {
   );
 
   const activeDatabaseLabel = isCustomSchema
-    ? customSchemaName ?? 'Base propia (JSON)'
+    ? customSchemaName || 'Base propia (JSON)'
     : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
-  const conversationKey = isCustomSchema
-    ? `custom:${customSchemaName ?? 'json'}`
-    : activePresetId;
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-night-100">
@@ -342,7 +339,6 @@ export default function HomePage(): JSX.Element {
                     hideTitle={!hasStarted}
                     suggestions={chatSuggestions}
                     databaseLabel={activeDatabaseLabel}
-                    conversationKey={conversationKey}
                   />
                 </ErrorBoundary>
               )}

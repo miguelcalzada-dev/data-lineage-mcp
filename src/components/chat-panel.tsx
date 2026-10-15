@@ -68,12 +68,6 @@ function pickSuggestions(pool: string[], count: number): string[] {
   return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
-function isChatMessage(value: unknown): value is ChatMessage {
-  if (typeof value !== 'object' || value === null) return false;
-  const m = value as Record<string, unknown>;
-  return (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string';
-}
-
 export interface ChatPanelProps {
   onResult: (graph: GraphDefinition | null, impact: DdlImpact | null) => void;
   schema?: SchemaMetadata | null;
@@ -82,7 +76,6 @@ export interface ChatPanelProps {
   hideTitle?: boolean;
   suggestions?: string[];
   databaseLabel?: string;
-  conversationKey?: string;
 }
 
 export function ChatPanel({
@@ -93,7 +86,6 @@ export function ChatPanel({
   hideTitle = false,
   suggestions: suggestionSource,
   databaseLabel,
-  conversationKey,
 }: ChatPanelProps): JSX.Element {
   const pool = suggestionSource && suggestionSource.length > 0 ? suggestionSource : SUGGESTION_POOL;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -115,17 +107,6 @@ export function ChatPanel({
   }, [pool]);
 
   useEffect(() => {
-    if (!conversationKey) return;
-    try {
-      const raw = window.localStorage.getItem(`dlia:chat:${conversationKey}`);
-      const parsed = raw ? (JSON.parse(raw) as unknown) : null;
-      setMessages(Array.isArray(parsed) ? parsed.filter(isChatMessage) : []);
-    } catch {
-      setMessages([]);
-    }
-  }, [conversationKey]);
-
-  useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
@@ -143,15 +124,6 @@ export function ChatPanel({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
-
-  function persist(next: ChatMessage[]): void {
-    if (!conversationKey) return;
-    try {
-      window.localStorage.setItem(`dlia:chat:${conversationKey}`, JSON.stringify(next.slice(-50)));
-    } catch {
-      // ignora errores de almacenamiento
-    }
-  }
 
   async function request(history: ChatMessage[]): Promise<void> {
     setLoading(true);
@@ -186,7 +158,6 @@ export function ChatPanel({
         { role: 'assistant', content: data.reply ?? 'No obtuve respuesta.' },
       ];
       setMessages(withReply);
-      persist(withReply);
       onResult(data.graph ?? null, data.impact ?? null);
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -206,7 +177,6 @@ export function ChatPanel({
     const isFirst = messages.length === 0;
     const next: ChatMessage[] = [...messages, { role: 'user', content }];
     setMessages(next);
-    persist(next);
     setInput('');
     setSuggestions(pickSuggestions(pool, 3));
     if (isFirst && onStart) onStart();
@@ -235,7 +205,6 @@ export function ChatPanel({
     abortRef.current?.abort();
     abortRef.current = null;
     setMessages([]);
-    persist([]);
     setError(null);
     setLoading(false);
     setSuggestions(pickSuggestions(pool, 3));
