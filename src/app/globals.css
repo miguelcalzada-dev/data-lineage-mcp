@@ -18,6 +18,14 @@ body {
   border: none;
   padding: 0;
   box-shadow: none;
+  outline: none;
+}
+
+.react-flow__node-custom {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
 }
 
 .react-flow__edge-path {

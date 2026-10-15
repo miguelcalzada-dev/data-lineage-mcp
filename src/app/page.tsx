@@ -168,8 +168,8 @@ export default function HomePage(): JSX.Element {
       <div
         className={
           hasStarted
-            ? 'flex min-h-0 flex-1'
-            : 'flex min-h-0 flex-1 items-center justify-center p-6'
+            ? 'flex min-h-0 flex-1 flex-col md:flex-row'
+            : 'flex min-h-0 flex-1 items-center justify-center p-4 md:p-6'
         }
       >
         {/* Chat: centrado (hero) o sidebar */}
@@ -178,7 +178,7 @@ export default function HomePage(): JSX.Element {
           transition={springTransition}
           className={
             hasStarted
-              ? 'flex w-[380px] shrink-0 flex-col border-r border-stone-300 bg-white'
+              ? 'flex h-[55dvh] w-full shrink-0 flex-col border-b border-stone-300 bg-white md:h-auto md:w-[380px] md:border-b-0 md:border-r'
               : 'flex w-full max-w-3xl flex-col gap-4'
           }
         >

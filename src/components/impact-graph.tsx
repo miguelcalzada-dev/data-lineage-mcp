@@ -22,7 +22,7 @@ export interface ImpactGraphProps {
 }
 
 const nodeTypes = {
-  default: CustomNode,
+  custom: CustomNode,
 };
 
 const typeLabel: Record<string, string> = {
@@ -56,7 +56,7 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
 
       const gridNodes: Node[] = graph.nodes.map((node, index) => ({
         id: node.id,
-        type: 'default',
+        type: 'custom',
         position: {
           x: (index % cols) * colGap,
           y: Math.floor(index / cols) * rowGap,
@@ -103,7 +103,7 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
 
       return {
         id: node.id,
-        type: 'default',
+        type: 'custom',
         position,
         data: {
           label: node.label,
