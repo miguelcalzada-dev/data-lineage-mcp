@@ -11,6 +11,9 @@ body {
 
 body {
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  background-color: #f7f6f2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='washed'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.45 0 0 0 0 0.44 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23washed)'/%3E%3C/svg%3E");
+  background-attachment: fixed;
 }
 
 .react-flow__node {
