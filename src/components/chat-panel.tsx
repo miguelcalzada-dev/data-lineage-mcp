@@ -63,8 +63,8 @@ const SUGGESTION_POOL: string[] = [
   '¿Qué tablas tienen claves foráneas?',
 ];
 
-function pickSuggestions(count: number): string[] {
-  return [...SUGGESTION_POOL].sort(() => Math.random() - 0.5).slice(0, count);
+function pickSuggestions(pool: string[], count: number): string[] {
+  return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
 export interface ChatPanelProps {
@@ -73,6 +73,7 @@ export interface ChatPanelProps {
   onStart?: () => void;
   expanded?: boolean;
   hideTitle?: boolean;
+  suggestions?: string[];
 }
 
 export function ChatPanel({
@@ -81,12 +82,14 @@ export function ChatPanel({
   onStart,
   expanded = false,
   hideTitle = false,
+  suggestions: suggestionSource,
 }: ChatPanelProps): JSX.Element {
+  const pool = suggestionSource && suggestionSource.length > 0 ? suggestionSource : SUGGESTION_POOL;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>(() => pickSuggestions(3));
+  const [suggestions, setSuggestions] = useState<string[]>(() => pickSuggestions(pool, 3));
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -124,7 +127,7 @@ export function ChatPanel({
     setInput('');
     setLoading(true);
     setError(null);
-    setSuggestions(pickSuggestions(3));
+    setSuggestions(pickSuggestions(pool, 3));
     if (isFirst && onStart) onStart();
 
     abortRef.current?.abort();
@@ -170,7 +173,7 @@ export function ChatPanel({
     setMessages([]);
     setError(null);
     setLoading(false);
-    setSuggestions(pickSuggestions(3));
+    setSuggestions(pickSuggestions(pool, 3));
     onResult(null, null);
   }
 

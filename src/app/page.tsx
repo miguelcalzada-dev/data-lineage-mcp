@@ -18,6 +18,7 @@ import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
 import { apiPath } from '@/lib/api';
 import { GradientText } from '@/components/gradient-text';
+import { DATABASE_PRESETS, type DatabasePreset } from '@/data/schemas';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -40,6 +41,8 @@ export default function HomePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [graphMode, setGraphMode] = useState<GraphMode>('impact');
   const [customSchema, setCustomSchema] = useState<SchemaMetadata | null>(null);
+  const [activePresetId, setActivePresetId] = useState<string>('empresa');
+  const [chatSuggestions, setChatSuggestions] = useState<string[]>(DATABASE_PRESETS[0].suggestions);
   const spotlight = useSpotlight();
 
   useEffect(() => {
@@ -75,6 +78,23 @@ export default function HomePage(): JSX.Element {
       // ignora errores de almacenamiento
     }
   }, []);
+
+  const handleSelectPreset = useCallback(
+    (preset: DatabasePreset): void => {
+      setActivePresetId(preset.id);
+      setChatSuggestions(preset.suggestions);
+      setCustomSchema(preset.schema);
+      setGraph(schemaToGraph(preset.schema));
+      setImpact(null);
+      setGraphMode('schema');
+      try {
+        window.localStorage.removeItem('dlia:customSchema');
+      } catch {
+        // ignora errores de almacenamiento
+      }
+    },
+    []
+  );
 
   const schemaFileRef = useRef<HTMLInputElement>(null);
 
@@ -269,6 +289,7 @@ export default function HomePage(): JSX.Element {
                   onStart={() => setHasStarted(true)}
                   expanded={hasStarted}
                   hideTitle={!hasStarted}
+                  suggestions={chatSuggestions}
                 />
               )}
             </div>
@@ -287,7 +308,23 @@ export default function HomePage(): JSX.Element {
           </div>
 
           {!hasStarted && (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex flex-wrap justify-center gap-2">
+                {DATABASE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      activePresetId === preset.id
+                        ? 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-300'
+                        : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-700 dark:border-night-700 dark:bg-night-800 dark:text-night-400 dark:hover:text-night-200'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
               <input
                 ref={schemaFileRef}
                 type="file"
