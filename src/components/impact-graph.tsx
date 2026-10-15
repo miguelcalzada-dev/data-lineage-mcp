@@ -49,9 +49,10 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
     if (!graph) return { nodes: [], edges: [] };
 
     if (mode === 'schema') {
-      const cols = Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length)));
-      const colGap = 230;
-      const rowGap = 110;
+      const count = graph.nodes.length;
+      const cols = Math.max(1, Math.ceil(Math.sqrt(Math.max(count, 1) * 1.6)));
+      const colGap = 260;
+      const rowGap = 150;
 
       const gridNodes: Node[] = graph.nodes.map((node, index) => ({
         id: node.id,
@@ -73,13 +74,8 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        label: edge.label,
         type: 'smoothstep',
-        style: { stroke: '#d6d3d1', strokeWidth: 1.3 },
-        labelStyle: { fill: '#a8a29e', fontSize: 9 },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
-        labelBgPadding: [4, 2] as [number, number],
-        labelBgBorderRadius: 4,
+        style: { stroke: '#dcd9d3', strokeWidth: 1.1 },
       }));
 
       return { nodes: gridNodes, edges: gridEdges };

@@ -190,10 +190,6 @@ export default function HomePage(): JSX.Element {
               <h1 className="font-mono text-2xl font-bold italic tracking-tight text-orange-600">
                 Explora el impacto de tus cambios
               </h1>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-500">
-                Pregunta en lenguaje natural y descubre qué se rompería en tu base de datos antes de
-                aplicarlo.
-              </p>
             </motion.div>
           )}
 

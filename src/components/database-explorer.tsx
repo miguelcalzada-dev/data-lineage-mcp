@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Table2, Eye, ChevronDown, Search, Upload, Undo2, Download } from 'lucide-react';
+import { Table2, Eye, ChevronDown, Search, Upload, Undo2, Download, HelpCircle, X } from 'lucide-react';
 import type { SchemaMetadata, TableInfo } from '@/mcp/utils/postgres-inspector';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import { isValidSchema } from '@/mcp/utils/schema-analyzer';
@@ -21,6 +21,7 @@ export function DatabaseExplorer({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState<string>('');
+  const [showInfo, setShowInfo] = useState<boolean>(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -138,6 +139,15 @@ export function DatabaseExplorer({
             </button>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => setShowInfo(true)}
+          className="flex w-full items-center justify-center gap-1.5 pt-1 text-[11px] font-medium text-stone-400 transition hover:text-stone-600"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          ¿Cómo consigo el JSON de mi base de datos?
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 pb-3">
@@ -155,6 +165,88 @@ export function DatabaseExplorer({
           </div>
         )}
       </div>
+
+      {showInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 p-4 backdrop-blur-sm"
+          onClick={() => setShowInfo(false)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-base font-semibold text-stone-900">
+                ¿Cómo consigo el JSON de mi base de datos?
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowInfo(false)}
+                className="rounded-md p-1 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm leading-relaxed text-stone-600">
+              <div>
+                <p className="font-medium text-stone-800">Opción 1 · Exportar desde aquí</p>
+                <p className="mt-1">
+                  Si esta app ya está conectada a tu base de datos (Supabase), pulsa{' '}
+                  <span className="font-medium">«Exportar (JSON)»</span> y se descargará el archivo
+                  listo para volver a cargarlo.
+                </p>
+              </div>
+
+              <div>
+                <p className="font-medium text-stone-800">Opción 2 · Crear tu propio JSON</p>
+                <p className="mt-1">
+                  Para cualquier otra base de datos PostgreSQL, crea un archivo <code>.json</code> con
+                  esta estructura y súbelo con{' '}
+                  <span className="font-medium">«Cargar (JSON)»</span>:
+                </p>
+                <pre className="mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] leading-relaxed text-stone-600">
+{`{
+  "tables": [
+    {
+      "schema": "public",
+      "name": "orders",
+      "type": "BASE TABLE",
+      "columns": [
+        { "table_schema": "public", "table_name": "orders",
+          "column_name": "id", "data_type": "uuid",
+          "is_nullable": "NO", "column_default": null,
+          "ordinal_position": 1 }
+      ]
+    }
+  ],
+  "views": [
+    { "schema": "public", "name": "vw_x", "definition": "SELECT ..." }
+  ],
+  "routines": [
+    { "schema": "public", "name": "fn_x", "type": "FUNCTION",
+      "return_type": null, "language": "plpgsql", "definition": "..." }
+  ],
+  "foreignKeys": [
+    { "constraint_name": "fk_1",
+      "source_schema": "public", "source_table": "orders",
+      "source_column": "customer_id",
+      "target_schema": "public", "target_table": "customers",
+      "target_column": "id" }
+  ],
+  "primaryKeys": []
+}`}
+                </pre>
+              </div>
+
+              <p className="text-xs text-stone-400">
+                El campo <code>definition</code> de vistas y funciones es lo que permite detectar
+                dependencias. Si no lo tienes, puedes dejarlo vacío.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
