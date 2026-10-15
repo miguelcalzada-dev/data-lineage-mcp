@@ -25,7 +25,7 @@ export function FluidTabs({
   layoutId = 'fluid-tabs-pill',
 }: FluidTabsProps): JSX.Element {
   return (
-    <div className="relative flex items-center gap-1 rounded-full bg-stone-100 p-1 dark:bg-stone-800">
+    <div className="relative flex items-center gap-1 rounded-full bg-stone-100 p-1 dark:bg-night-800">
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -35,19 +35,19 @@ export function FluidTabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className="relative flex flex-1 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-stone-500 transition-colors hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+            className="relative flex flex-1 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-stone-500 transition-colors hover:text-stone-700 dark:text-night-400 dark:hover:text-night-200"
           >
             {isActive && (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-stone-700"
+                className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-night-700"
                 transition={SPRING}
                 aria-hidden
               />
             )}
             <span
               className={`relative z-10 inline-flex items-center justify-center gap-2 ${
-                isActive ? 'text-stone-900 dark:text-stone-100' : ''
+                isActive ? 'text-stone-900 dark:text-night-100' : ''
               }`}
             >
               {tab.icon}

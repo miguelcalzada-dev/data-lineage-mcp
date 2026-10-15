@@ -5,7 +5,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 
   return boldParts.flatMap((part, i) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-      return <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-stone-900 dark:text-stone-100">{part.slice(2, -2)}</strong>;
+      return <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-stone-900 dark:text-night-100">{part.slice(2, -2)}</strong>;
     }
 
     const emParts = part.split(/(\*[^*]+\*)/g);

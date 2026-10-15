@@ -165,7 +165,7 @@ export function ChatPanel({
           <button
             type="button"
             onClick={clearChat}
-            className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-400 transition hover:border-stone-300 hover:text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400 dark:hover:border-stone-600 dark:hover:text-stone-200"
+            className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-400 transition hover:border-stone-300 hover:text-stone-600 dark:border-night-700 dark:bg-night-800 dark:text-night-400 dark:hover:border-night-600 dark:hover:text-night-200"
           >
             <RotateCcw className="h-3 w-3" />
             Nueva conversación
@@ -178,11 +178,11 @@ export function ChatPanel({
           <div className="space-y-3">
             {!hideTitle && (
               <>
-                <div className="flex items-center gap-2 text-sm font-semibold text-stone-800 dark:text-stone-100">
+                <div className="flex items-center gap-2 text-sm font-semibold text-stone-800 dark:text-night-100">
                   <Network className="h-4 w-4 text-orange-600" />
                   Pregúntame sobre tu base de datos
                 </div>
-                <p className="text-xs leading-relaxed text-stone-500 dark:text-stone-400">
+                <p className="text-xs leading-relaxed text-stone-500 dark:text-night-400">
                   Escribe en lenguaje natural, por ejemplo:
                 </p>
               </>
@@ -193,7 +193,7 @@ export function ChatPanel({
                   key={s}
                   type="button"
                   onClick={() => void send(s)}
-                  className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs text-stone-600 transition hover:border-orange-300 hover:bg-orange-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
+                  className="w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs text-stone-600 transition hover:border-orange-300 hover:bg-orange-50 dark:border-night-700 dark:bg-night-800 dark:text-night-300 dark:hover:bg-night-700"
                 >
                   {s}
                 </button>
@@ -212,7 +212,7 @@ export function ChatPanel({
                   className={`max-w-[85%] break-words rounded-xl px-3 py-2 text-sm ${
                     isUser
                       ? 'whitespace-pre-wrap bg-orange-600 text-white'
-                      : 'border border-stone-200 bg-white text-stone-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200'
+                      : 'border border-stone-200 bg-white text-stone-700 dark:border-night-700 dark:bg-night-800 dark:text-night-200'
                   }`}
                 >
                   {isUser ? (
@@ -242,7 +242,7 @@ export function ChatPanel({
         )}
       </div>
 
-      <div className="border-t border-stone-200 p-3 dark:border-stone-700">
+      <div className="border-t border-stone-200 p-3 dark:border-night-700">
         <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
@@ -256,7 +256,7 @@ export function ChatPanel({
             }}
             rows={1}
             placeholder="Escribe tu pregunta…"
-            className="no-scrollbar max-h-[160px] flex-1 resize-none overflow-y-auto rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-snug text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:bg-stone-800"
+            className="no-scrollbar max-h-[160px] flex-1 resize-none overflow-y-auto rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm leading-snug text-stone-900 placeholder:text-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-400 dark:border-night-700 dark:bg-night-800 dark:text-night-100 dark:placeholder:text-night-500 dark:focus:bg-night-800"
           />
           <button
             type="button"

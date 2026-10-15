@@ -168,7 +168,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
 
   if (loading && !graph) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-stone-500 dark:text-stone-400">
+      <div className="flex h-full items-center justify-center text-sm text-stone-500 dark:text-night-400">
         Analizando dependencias…
       </div>
     );
@@ -177,7 +177,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
   if (!graph) {
     return (
       <div className="flex h-full items-center justify-center px-8">
-        <p className="text-sm text-stone-400 dark:text-stone-500">
+        <p className="text-sm text-stone-400 dark:text-night-500">
           El mapa de impacto aparecerá aquí tras realizar un análisis.
         </p>
       </div>
@@ -204,12 +204,12 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
         {mode === 'impact' && (
           <Panel
             position="top-left"
-            className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm dark:border-stone-700 dark:bg-stone-800/95 dark:text-stone-300"
+            className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm dark:border-night-700 dark:bg-night-800/95 dark:text-night-300"
           >
-            <p className="mb-1.5 font-semibold text-stone-700 dark:text-stone-200">Leyenda</p>
+            <p className="mb-1.5 font-semibold text-stone-700 dark:text-night-200">Leyenda</p>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100 dark:border-stone-500 dark:bg-stone-700" />
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100 dark:border-night-500 dark:bg-night-700" />
                 <span>Lo que vas a cambiar</span>
               </div>
               <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
                 <span>Se rompe (afectado)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800" />
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white dark:border-night-700 dark:bg-night-800" />
                 <span>Sin afectar</span>
               </div>
             </div>
@@ -253,13 +253,13 @@ function CustomNode({
   const borderColor = data.affected
     ? 'border-orange-300 bg-orange-50 dark:border-orange-500/40 dark:bg-orange-500/10'
     : data.isOrigin
-    ? 'border-stone-400 bg-stone-100 dark:border-stone-600 dark:bg-stone-700'
-    : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800';
+    ? 'border-stone-400 bg-stone-100 dark:border-night-600 dark:bg-night-700'
+    : 'border-stone-200 bg-white dark:border-night-700 dark:bg-night-800';
   const textColor = data.affected
     ? 'text-orange-900 dark:text-orange-200'
     : data.isOrigin
-    ? 'text-stone-900 dark:text-stone-100'
-    : 'text-stone-700 dark:text-stone-200';
+    ? 'text-stone-900 dark:text-night-100'
+    : 'text-stone-700 dark:text-night-200';
 
   return (
     <div className={`box-border w-[190px] rounded-lg border px-3 py-2.5 ${borderColor}`}>
@@ -272,7 +272,7 @@ function CustomNode({
         </span>
         <div className="min-w-0 flex-1">
           <p className={`truncate text-xs font-semibold leading-tight ${textColor}`}>{data.label}</p>
-          <p className="truncate text-[10px] uppercase tracking-wide text-stone-400 dark:text-stone-500">
+          <p className="truncate text-[10px] uppercase tracking-wide text-stone-400 dark:text-night-500">
             {typeLabel[data.type] ?? data.type}
           </p>
         </div>

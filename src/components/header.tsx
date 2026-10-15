@@ -44,20 +44,18 @@ export function Header(): JSX.Element {
       : 'bg-stone-300';
 
   return (
-    <>
-      <div className="absolute right-4 top-3 z-30">
+    <div className="absolute bottom-4 left-4 z-30 flex items-center gap-3 text-[11px] font-medium text-stone-500 dark:text-night-400">
+      <div className="pointer-events-auto">
         <ThemeToggle />
       </div>
-      <div className="pointer-events-none absolute bottom-4 right-5 z-30 flex items-center gap-3.5 text-[11px] font-medium text-stone-500 dark:text-stone-400">
-        <span className="flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
-          Supabase
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
-          MCP
-        </span>
-      </div>
-    </>
+      <span className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
+        Supabase
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
+        MCP
+      </span>
+    </div>
   );
 }

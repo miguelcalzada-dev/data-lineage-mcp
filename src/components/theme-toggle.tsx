@@ -32,18 +32,22 @@ export function ThemeToggle(): JSX.Element {
       onClick={toggle}
       aria-label="Cambiar tema claro/oscuro"
       title="Cambiar tema"
-      className="relative flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-200"
+      className="relative flex h-8 w-8 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 dark:text-night-400 dark:hover:bg-night-800 dark:hover:text-night-200"
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={theme}
-          initial={{ y: 10, opacity: 0, rotate: -45 }}
-          animate={{ y: 0, opacity: 1, rotate: 0 }}
-          exit={{ y: -10, opacity: 0, rotate: 45 }}
-          transition={{ duration: 0.2 }}
+          initial={{ y: 16, opacity: 0, rotate: -120, scale: 0.4 }}
+          animate={{ y: 0, opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ y: -16, opacity: 0, rotate: 120, scale: 0.4 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="absolute flex"
         >
-          {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          {theme === 'dark' ? (
+            <Moon className="h-[18px] w-[18px]" />
+          ) : (
+            <Sun className="h-[18px] w-[18px]" />
+          )}
         </motion.span>
       </AnimatePresence>
     </button>
