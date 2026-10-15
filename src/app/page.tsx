@@ -162,7 +162,7 @@ export default function HomePage(): JSX.Element {
   );
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-stone-100">
       <Header />
 
       <div
@@ -178,7 +178,7 @@ export default function HomePage(): JSX.Element {
           transition={springTransition}
           className={
             hasStarted
-              ? 'flex h-[55dvh] w-full shrink-0 flex-col border-b border-stone-300 bg-white md:h-auto md:w-[380px] md:border-b-0 md:border-r'
+              ? 'flex h-[55dvh] w-full shrink-0 flex-col border-b border-stone-300 bg-white md:h-auto md:w-[380px] md:border-b-0 md:border-r dark:border-stone-700 dark:bg-stone-900'
               : 'flex w-full max-w-3xl flex-col gap-4'
           }
         >
@@ -201,7 +201,7 @@ export default function HomePage(): JSX.Element {
             className={
               hasStarted
                 ? 'flex min-h-0 flex-1 flex-col'
-                : 'relative overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm'
+                : 'relative overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm dark:border-stone-700 dark:bg-stone-900'
             }
           >
             {!hasStarted && (

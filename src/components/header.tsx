@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Header(): JSX.Element {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
@@ -43,15 +44,20 @@ export function Header(): JSX.Element {
       : 'bg-stone-300';
 
   return (
-    <div className="pointer-events-none absolute bottom-4 right-5 z-30 flex items-center gap-3.5 text-[11px] font-medium text-stone-500">
-      <span className="flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
-        Supabase
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
-        MCP
-      </span>
-    </div>
+    <>
+      <div className="absolute right-4 top-3 z-30">
+        <ThemeToggle />
+      </div>
+      <div className="pointer-events-none absolute bottom-4 right-5 z-30 flex items-center gap-3.5 text-[11px] font-medium text-stone-500 dark:text-stone-400">
+        <span className="flex items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />
+          Supabase
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 rounded-full ${dotClass(mcpStatus)}`} />
+          MCP
+        </span>
+      </div>
+    </>
   );
 }

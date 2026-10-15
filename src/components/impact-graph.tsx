@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
   Panel,
+  ReactFlowProvider,
+  useReactFlow,
   type Node,
   type Edge,
   Handle,
@@ -44,107 +46,47 @@ const edgeLabel: Record<string, string> = {
   affected_column: 'columna afectada',
 };
 
-interface LayoutNode {
-  id: string;
-}
+function useIsDark(): boolean {
+  const [isDark, setIsDark] = useState(false);
 
-interface LayoutEdge {
-  source: string;
-  target: string;
-}
+  useEffect(() => {
+    const check = (): void => setIsDark(document.documentElement.classList.contains('dark'));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
-function computeForceLayout(
-  nodes: LayoutNode[],
-  edges: LayoutEdge[],
-  width = 1100,
-  height = 760
-): Record<string, { x: number; y: number }> {
-  const n = nodes.length;
-  const positions: Record<string, { x: number; y: number }> = {};
-
-  nodes.forEach((node, i) => {
-    const angle = (i / Math.max(n, 1)) * 2 * Math.PI;
-    positions[node.id] = {
-      x: width / 2 + Math.cos(angle) * (width / 3),
-      y: height / 2 + Math.sin(angle) * (height / 3),
-    };
-  });
-
-  if (n <= 1) return positions;
-
-  const k = Math.sqrt((width * height) / n);
-  const iterations = 320;
-  let temperature = width / 8;
-  const cooling = temperature / iterations;
-
-  const disp: Record<string, { x: number; y: number }> = {};
-
-  for (let it = 0; it < iterations; it++) {
-    nodes.forEach((node) => {
-      disp[node.id] = { x: 0, y: 0 };
-    });
-
-    // Repulsión entre todos los nodos
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const a = positions[nodes[i].id];
-        const b = positions[nodes[j].id];
-        let dx = a.x - b.x;
-        let dy = a.y - b.y;
-        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
-        const force = (k * k) / dist;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        disp[nodes[i].id].x += fx;
-        disp[nodes[i].id].y += fy;
-        disp[nodes[j].id].x -= fx;
-        disp[nodes[j].id].y -= fy;
-      }
-    }
-
-    // Atracción a lo largo de las aristas
-    for (const edge of edges) {
-      const a = positions[edge.source];
-      const b = positions[edge.target];
-      if (!a || !b) continue;
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
-      const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
-      const force = (dist * dist) / k;
-      const fx = (dx / dist) * force;
-      const fy = (dy / dist) * force;
-      disp[edge.source].x -= fx;
-      disp[edge.source].y -= fy;
-      disp[edge.target].x += fx;
-      disp[edge.target].y += fy;
-    }
-
-    nodes.forEach((node) => {
-      const d = disp[node.id];
-      const len = Math.max(Math.sqrt(d.x * d.x + d.y * d.y), 0.01);
-      const limited = Math.min(len, temperature);
-      const p = positions[node.id];
-      p.x = Math.max(120, Math.min(width - 120, p.x + (d.x / len) * limited));
-      p.y = Math.max(90, Math.min(height - 90, p.y + (d.y / len) * limited));
-    });
-
-    temperature -= cooling;
-  }
-
-  return positions;
+  return isDark;
 }
 
 export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactGraphProps): JSX.Element {
+  return (
+    <ReactFlowProvider>
+      <GraphCanvas graph={graph} loading={loading} mode={mode} />
+    </ReactFlowProvider>
+  );
+}
+
+function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphProps): JSX.Element {
+  const { fitView } = useReactFlow();
+  const isDark = useIsDark();
+
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
 
     if (mode === 'schema') {
-      const positions = computeForceLayout(graph.nodes, graph.edges);
+      const cols = 5;
+      const colGap = 280;
+      const rowGap = 150;
 
-      const gridNodes: Node[] = graph.nodes.map((node) => ({
+      const gridNodes: Node[] = graph.nodes.map((node, index) => ({
         id: node.id,
         type: 'custom',
-        position: positions[node.id] ?? { x: 0, y: 0 },
+        position: {
+          x: (index % cols) * colGap,
+          y: Math.floor(index / cols) * rowGap,
+        },
         data: {
           label: node.label,
           type: node.type,
@@ -158,16 +100,15 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        type: 'default',
-        style: { stroke: '#d6d3d1', strokeWidth: 1 },
+        type: 'smoothstep',
+        style: { stroke: isDark ? '#57534e' : '#e0ddd8', strokeWidth: 1 },
       }));
 
       return { nodes: gridNodes, edges: gridEdges };
     }
 
     const targetIds = new Set(graph.edges.map((e) => e.target));
-    const originId =
-      graph.nodes.find((n) => !targetIds.has(n.id))?.id ?? graph.nodes[0]?.id;
+    const originId = graph.nodes.find((n) => !targetIds.has(n.id))?.id ?? graph.nodes[0]?.id;
 
     const dependents = graph.nodes.filter((n) => n.id !== originId);
     const horizontalGap = 380;
@@ -206,19 +147,28 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
       label: edgeLabel[edge.label ?? ''] ?? edge.label,
       type: 'smoothstep',
       animated: true,
-      style: { stroke: '#a8a29e', strokeWidth: 1.5 },
-      labelStyle: { fill: '#78716c', fontSize: 10 },
-      labelBgStyle: { fill: '#F3EEE5', fillOpacity: 0.9 },
+      style: { stroke: isDark ? '#78716c' : '#a8a29e', strokeWidth: 1.5 },
+      labelStyle: { fill: isDark ? '#a8a29e' : '#78716c', fontSize: 10 },
+      labelBgStyle: { fill: isDark ? '#1c1917' : '#ffffff', fillOpacity: 0.9 },
       labelBgPadding: [6, 2] as [number, number],
       labelBgBorderRadius: 4,
     }));
 
     return { nodes: flowNodes, edges: flowEdges };
-  }, [graph, mode]);
+  }, [graph, mode, isDark]);
+
+  // Auto-foco cada vez que cambia el grafo
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    const timeout = setTimeout(() => {
+      fitView({ padding: 0.4, maxZoom: 0.9, duration: 500 });
+    }, 80);
+    return () => clearTimeout(timeout);
+  }, [nodes, fitView]);
 
   if (loading && !graph) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-stone-500">
+      <div className="flex h-full items-center justify-center text-sm text-stone-500 dark:text-stone-400">
         Analizando dependencias…
       </div>
     );
@@ -227,7 +177,9 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
   if (!graph) {
     return (
       <div className="flex h-full items-center justify-center px-8">
-        <p className="text-sm text-stone-400">El mapa de impacto aparecerá aquí tras realizar un análisis.</p>
+        <p className="text-sm text-stone-400 dark:text-stone-500">
+          El mapa de impacto aparecerá aquí tras realizar un análisis.
+        </p>
       </div>
     );
   }
@@ -239,7 +191,7 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.45, maxZoom: 0.9 }}
+        fitViewOptions={{ padding: 0.4, maxZoom: 0.9 }}
         nodesDraggable
         nodesConnectable={false}
         minZoom={0.15}
@@ -247,25 +199,25 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
         attributionPosition="bottom-right"
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={16} size={1} color="#e7e5e4" />
+        <Background gap={16} size={1} color={isDark ? '#44403c' : '#e7e5e4'} />
         <Controls />
         {mode === 'impact' && (
           <Panel
             position="top-left"
-            className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm"
+            className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm dark:border-stone-700 dark:bg-stone-800/95 dark:text-stone-300"
           >
-            <p className="mb-1.5 font-semibold text-stone-700">Leyenda</p>
+            <p className="mb-1.5 font-semibold text-stone-700 dark:text-stone-200">Leyenda</p>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100" />
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100 dark:border-stone-500 dark:bg-stone-700" />
                 <span>Lo que vas a cambiar</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100" />
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100 dark:border-orange-500/40 dark:bg-orange-500/20" />
                 <span>Se rompe (afectado)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white" />
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800" />
                 <span>Sin afectar</span>
               </div>
             </div>
@@ -299,15 +251,15 @@ function CustomNode({
     );
 
   const borderColor = data.affected
-    ? 'border-orange-300 bg-orange-50'
+    ? 'border-orange-300 bg-orange-50 dark:border-orange-500/40 dark:bg-orange-500/10'
     : data.isOrigin
-    ? 'border-stone-400 bg-stone-100'
-    : 'border-stone-200 bg-white';
+    ? 'border-stone-400 bg-stone-100 dark:border-stone-600 dark:bg-stone-700'
+    : 'border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800';
   const textColor = data.affected
-    ? 'text-orange-900'
+    ? 'text-orange-900 dark:text-orange-200'
     : data.isOrigin
-    ? 'text-stone-900'
-    : 'text-stone-700';
+    ? 'text-stone-900 dark:text-stone-100'
+    : 'text-stone-700 dark:text-stone-200';
 
   return (
     <div className={`box-border w-[190px] rounded-lg border px-3 py-2.5 ${borderColor}`}>
@@ -320,7 +272,7 @@ function CustomNode({
         </span>
         <div className="min-w-0 flex-1">
           <p className={`truncate text-xs font-semibold leading-tight ${textColor}`}>{data.label}</p>
-          <p className="truncate text-[10px] uppercase tracking-wide text-stone-400">
+          <p className="truncate text-[10px] uppercase tracking-wide text-stone-400 dark:text-stone-500">
             {typeLabel[data.type] ?? data.type}
           </p>
         </div>

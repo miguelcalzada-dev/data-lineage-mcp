@@ -68,3 +68,23 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-stone-400;
 }
+
+/* Dark mode */
+.dark body {
+  background-color: #1a1815;
+  background-image: none;
+}
+
+.dark .react-flow__controls-button {
+  background: #292524;
+  border-bottom: 1px solid #44403c;
+  fill: #d6d3d1;
+}
+
+.dark .react-flow__controls-button:hover {
+  background: #3f3c39;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #44403c;
+}

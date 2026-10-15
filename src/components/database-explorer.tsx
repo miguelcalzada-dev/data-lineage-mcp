@@ -94,13 +94,13 @@ export function DatabaseExplorer({
   return (
     <div className="flex h-full flex-col">
       <div className="space-y-2 p-3">
-        <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 dark:border-stone-700 dark:bg-stone-800">
           <Search className="h-4 w-4 text-stone-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar tabla o vista…"
-            className="w-full bg-transparent text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none"
+            className="w-full bg-transparent text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none dark:text-stone-100 dark:placeholder:text-stone-500"
           />
         </div>
 
@@ -123,7 +123,7 @@ export function DatabaseExplorer({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
             >
               <Upload className="h-3.5 w-3.5" />
               Cargar (JSON)
@@ -132,7 +132,7 @@ export function DatabaseExplorer({
               type="button"
               onClick={exportSchema}
               disabled={!effective}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-300"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-300 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
             >
               <Download className="h-3.5 w-3.5" />
               Exportar (JSON)
@@ -143,7 +143,7 @@ export function DatabaseExplorer({
         <button
           type="button"
           onClick={() => setShowInfo(true)}
-          className="flex w-full items-center justify-center gap-1.5 pt-1 text-[11px] font-medium text-stone-400 transition hover:text-stone-600"
+          className="flex w-full items-center justify-center gap-1.5 pt-1 text-[11px] font-medium text-stone-400 transition hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
         >
           <HelpCircle className="h-3.5 w-3.5" />
           ¿Cómo consigo el JSON de mi base de datos?
@@ -156,7 +156,7 @@ export function DatabaseExplorer({
 
         {effective && (
           <div className="space-y-1">
-            <p className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+            <p className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">
               {tables.length} objetos
             </p>
             {tables.map((table) => (
@@ -172,11 +172,11 @@ export function DatabaseExplorer({
           onClick={() => setShowInfo(false)}
         >
           <div
-            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
+            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl dark:border-stone-700 dark:bg-stone-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
-              <h3 className="text-base font-semibold text-stone-900">
+              <h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
                 ¿Cómo consigo el JSON de mi base de datos?
               </h3>
               <button
@@ -188,7 +188,7 @@ export function DatabaseExplorer({
               </button>
             </div>
 
-            <div className="mt-4 space-y-4 text-sm leading-relaxed text-stone-600">
+            <div className="mt-4 space-y-4 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
               <div>
                 <p className="font-medium text-stone-800">Opción 1 · Exportar desde aquí</p>
                 <p className="mt-1">
@@ -205,7 +205,7 @@ export function DatabaseExplorer({
                   esta estructura y súbelo con{' '}
                   <span className="font-medium">«Cargar (JSON)»</span>:
                 </p>
-                <pre className="no-scrollbar mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] leading-relaxed text-stone-600">
+                <pre className="no-scrollbar mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-stone-50 p-3 text-[11px] leading-relaxed text-stone-600 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300">
 {`{
   "tables": [
     {
@@ -256,8 +256,8 @@ function TableRow({ table }: { table: TableInfo }): JSX.Element {
   const Icon = isView ? Eye : Table2;
 
   return (
-    <details className="group rounded-lg border border-stone-200 bg-white">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 hover:bg-stone-50">
+    <details className="group rounded-lg border border-stone-200 bg-white dark:border-stone-700 dark:bg-stone-800">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 hover:bg-stone-50 dark:hover:bg-stone-700">
         <span
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${
             isView ? 'bg-stone-100 text-stone-500' : 'bg-orange-50 text-orange-600'
@@ -266,23 +266,23 @@ function TableRow({ table }: { table: TableInfo }): JSX.Element {
           <Icon className="h-3.5 w-3.5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-stone-800">{table.name}</span>
-          <span className="block text-[10px] text-stone-400">
+          <span className="block truncate text-sm font-medium text-stone-800 dark:text-stone-100">{table.name}</span>
+          <span className="block text-[10px] text-stone-400 dark:text-stone-500">
             {isView ? 'Vista' : 'Tabla'} · {table.columns.length} col.
           </span>
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-stone-400 transition-transform group-open:rotate-180" />
       </summary>
 
-      <div className="border-t border-stone-100 px-3 py-2">
+      <div className="border-t border-stone-100 px-3 py-2 dark:border-stone-700">
         {table.columns.length === 0 ? (
           <p className="text-xs text-stone-400">Sin columnas visibles.</p>
         ) : (
           <ul className="space-y-0.5">
             {table.columns.map((col) => (
               <li key={col.column_name} className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate font-mono text-stone-700">{col.column_name}</span>
-                <span className="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">
+                <span className="truncate font-mono text-stone-700 dark:text-stone-300">{col.column_name}</span>
+                <span className="shrink-0 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500 dark:bg-stone-700 dark:text-stone-400">
                   {col.data_type}
                 </span>
               </li>

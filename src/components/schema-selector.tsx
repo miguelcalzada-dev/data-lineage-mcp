@@ -75,11 +75,11 @@ export function SchemaSelector({ onSelect, schema: externalSchema = null }: Sche
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-stone-700">Tabla</label>
+        <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-stone-300">Tabla</label>
         <select
           value={selectedTableId}
           onChange={(e) => handleTableChange(e.target.value)}
-          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
         >
           <option value="">Selecciona una tabla</option>
           {schema?.tables.map((table) => (
@@ -91,12 +91,12 @@ export function SchemaSelector({ onSelect, schema: externalSchema = null }: Sche
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-stone-700">Columna</label>
+        <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-stone-300">Columna</label>
         <select
           value={selectedColumn}
           onChange={(e) => setSelectedColumn(e.target.value)}
           disabled={!selectedTable}
-          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 disabled:bg-stone-50 disabled:text-stone-400 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+          className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 disabled:bg-stone-50 disabled:text-stone-400 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:disabled:bg-stone-900"
         >
           <option value="">Selecciona una columna</option>
           {selectedTable?.columns.map((column) => (
@@ -111,7 +111,7 @@ export function SchemaSelector({ onSelect, schema: externalSchema = null }: Sche
         type="button"
         onClick={handleTrace}
         disabled={!selectedTable || !selectedColumn}
-        className="flex w-full items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-400"
+        className="flex w-full items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-400 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
       >
         <ChevronRight className="h-4 w-4" />
         Ver dependencias
