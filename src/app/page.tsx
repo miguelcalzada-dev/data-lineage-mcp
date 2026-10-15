@@ -10,7 +10,8 @@ import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
-import type { DdlImpact } from '@/mcp/utils/postgres-inspector';
+import type { DdlImpact, LineageNode } from '@/mcp/utils/postgres-inspector';
+import type { GraphMode } from '@/components/impact-graph';
 
 const objectTypeLabel: Record<string, string> = {
   view: 'Vista',
@@ -28,6 +29,27 @@ export default function HomePage(): JSX.Element {
   const [impact, setImpact] = useState<DdlImpact | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [graphMode, setGraphMode] = useState<GraphMode>('impact');
+
+  const loadSchemaGraph = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/schema-graph');
+      const data = (await response.json()) as GraphDefinition & { error?: string };
+      if (!response.ok || data.error) {
+        throw new Error(data.error ?? 'No se pudo cargar el esquema');
+      }
+      setGraph(data);
+      setImpact(null);
+      setGraphMode('schema');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleTraceLineage = useCallback(async (table: string, column: string): Promise<void> => {
     setLoading(true);
@@ -45,8 +67,28 @@ export default function HomePage(): JSX.Element {
         throw new Error(data.error ?? 'No se pudo completar el análisis');
       }
 
-      setImpact(data.impact ?? null);
       setGraph(data.graph ?? null);
+      setGraphMode('impact');
+
+      const lineage: LineageNode[] = data.lineage ?? [];
+      const dependents = lineage.filter((l) => l.relation !== 'origin');
+      const origin = lineage.find((l) => l.relation === 'origin') ?? lineage[0];
+
+      if (dependents.length > 0 && origin) {
+        setImpact({
+          risk: dependents.length > 3 ? 'HIGH' : 'MEDIUM',
+          summary: '',
+          affectedObjects: dependents.map((d) => ({
+            type: mapKindToAffected(d.kind),
+            schema: d.schema,
+            name: d.table,
+            detail: `Depende de ${origin.table}.${origin.column}`,
+          })),
+          target: { schema: origin.schema, table: origin.table, column: origin.column },
+        });
+      } else {
+        setImpact(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -58,6 +100,7 @@ export default function HomePage(): JSX.Element {
     (newGraph: GraphDefinition | null, newImpact: DdlImpact | null): void => {
       setGraph(newGraph);
       setImpact(newImpact);
+      setGraphMode('impact');
     },
     []
   );
@@ -78,7 +121,10 @@ export default function HomePage(): JSX.Element {
           />
           <TabButton
             active={tab === 'db'}
-            onClick={() => setTab('db')}
+            onClick={() => {
+              setTab('db');
+              void loadSchemaGraph();
+            }}
             icon={<Database className="h-4 w-4" />}
             label="Base de datos"
           />
@@ -110,7 +156,7 @@ export default function HomePage(): JSX.Element {
               {error}
             </div>
           )}
-          <ImpactGraph graph={graph} loading={loading} />
+          <ImpactGraph graph={graph} loading={loading} mode={graphMode} />
           {impact && <ImpactSummary impact={impact} />}
         </div>
       </main>
@@ -189,7 +235,7 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
       ) : (
         <>
           <p className="mt-1 text-sm text-stone-600">
-            Este cambio afectará a {count} objeto{count === 1 ? '' : 's'}:
+            {count} objeto{count === 1 ? '' : 's'} relacionado{count === 1 ? '' : 's'}:
           </p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {impact.affectedObjects.map((obj, i) => (
@@ -207,4 +253,13 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
       )}
     </div>
   );
+}
+
+function mapKindToAffected(
+  kind: string
+): 'column' | 'table' | 'view' | 'foreign_key' | 'routine' {
+  if (kind === 'view' || kind === 'routine' || kind === 'foreign_key' || kind === 'table') {
+    return kind;
+  }
+  return 'table';
 }

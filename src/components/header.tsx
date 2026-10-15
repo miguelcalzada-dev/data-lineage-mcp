@@ -43,14 +43,7 @@ export function Header(): JSX.Element {
       : 'bg-stone-300';
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-stone-200 bg-white px-5">
-      <div className="flex items-baseline gap-2">
-        <span className="text-[15px] font-semibold tracking-tight text-stone-900">
-          Data Lineage
-        </span>
-        <span className="text-xs font-normal text-stone-400">Analizador de impacto</span>
-      </div>
-
+    <header className="flex h-11 shrink-0 items-center justify-end border-b border-stone-200 bg-white px-5">
       <div className="flex items-center gap-3.5 text-[11px] font-medium text-stone-500">
         <span className="flex items-center gap-1.5">
           <span className={`h-1.5 w-1.5 rounded-full ${dotClass(dbStatus)}`} />

@@ -14,9 +14,12 @@ import ReactFlow, {
 import { Table2, Eye, FileCode, Link2 } from 'lucide-react';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 
+export type GraphMode = 'impact' | 'schema';
+
 export interface ImpactGraphProps {
   graph: GraphDefinition | null;
   loading?: boolean;
+  mode?: GraphMode;
 }
 
 const nodeTypes = {
@@ -42,9 +45,46 @@ const edgeLabel: Record<string, string> = {
   affected_column: 'columna afectada',
 };
 
-export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.Element {
+export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactGraphProps): JSX.Element {
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [], edges: [] };
+
+    if (mode === 'schema') {
+      const cols = Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length)));
+      const colGap = 230;
+      const rowGap = 110;
+
+      const gridNodes: Node[] = graph.nodes.map((node, index) => ({
+        id: node.id,
+        type: 'default',
+        position: {
+          x: (index % cols) * colGap,
+          y: Math.floor(index / cols) * rowGap,
+        },
+        data: {
+          label: node.label,
+          type: node.type,
+          affected: false,
+          schema: node.schema,
+          isOrigin: false,
+        },
+      }));
+
+      const gridEdges: Edge[] = graph.edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        label: edge.label,
+        type: 'smoothstep',
+        style: { stroke: '#d6d3d1', strokeWidth: 1.3 },
+        labelStyle: { fill: '#a8a29e', fontSize: 9 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
+        labelBgPadding: [4, 2] as [number, number],
+        labelBgBorderRadius: 4,
+      }));
+
+      return { nodes: gridNodes, edges: gridEdges };
+    }
 
     const targetIds = new Set(graph.edges.map((e) => e.target));
     const originId =
@@ -89,13 +129,13 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
       animated: true,
       style: { stroke: '#a8a29e', strokeWidth: 1.5 },
       labelStyle: { fill: '#78716c', fontSize: 10 },
-      labelBgStyle: { fill: '#F0EFEC', fillOpacity: 0.9 },
+      labelBgStyle: { fill: '#F3EEE5', fillOpacity: 0.9 },
       labelBgPadding: [6, 2] as [number, number],
       labelBgBorderRadius: 4,
     }));
 
     return { nodes: flowNodes, edges: flowEdges };
-  }, [graph]);
+  }, [graph, mode]);
 
   if (loading && !graph) {
     return (
@@ -113,9 +153,7 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
         </div>
         <p className="text-sm font-semibold text-stone-600">Aquí verás el mapa de impacto</p>
         <p className="max-w-sm text-sm leading-relaxed text-stone-500">
-          Escribe un cambio en el panel de la izquierda y pulsa{' '}
-          <span className="font-medium text-stone-700">«Simular impacto»</span>, o elige una tabla
-          y columna en <span className="font-medium text-stone-700">«Explorar dependencias»</span>.
+          Pregunta al asistente o usa «Explorar dependencias» para visualizar relaciones.
         </p>
       </div>
     );
@@ -128,36 +166,38 @@ export function ImpactGraph({ graph, loading = false }: ImpactGraphProps): JSX.E
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.7 }}
+        fitViewOptions={{ padding: 0.45, maxZoom: 0.9 }}
         nodesDraggable
         nodesConnectable={false}
-        minZoom={0.2}
-        maxZoom={2}
+        minZoom={0.15}
+        maxZoom={1.5}
         attributionPosition="bottom-right"
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={16} size={1} color="#e7e5e4" />
         <Controls />
-        <Panel
-          position="top-left"
-          className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm"
-        >
-          <p className="mb-1.5 font-semibold text-stone-700">Leyenda</p>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100" />
-              <span>Lo que vas a cambiar</span>
+        {mode === 'impact' && (
+          <Panel
+            position="top-left"
+            className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm"
+          >
+            <p className="mb-1.5 font-semibold text-stone-700">Leyenda</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-400 bg-stone-100" />
+                <span>Lo que vas a cambiar</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100" />
+                <span>Se rompe (afectado)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white" />
+                <span>Sin afectar</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-orange-300 bg-orange-100" />
-              <span>Se rompe (afectado)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-stone-200 bg-white" />
-              <span>Sin afectar</span>
-            </div>
-          </div>
-        </Panel>
+          </Panel>
+        )}
         <MiniMap
           nodeStrokeWidth={3}
           nodeColor={(n) => (n.data?.affected ? '#f97316' : n.data?.isOrigin ? '#78716c' : '#d6d3d1')}
@@ -208,10 +248,12 @@ function CustomNode({
     : null;
 
   return (
-    <div className={`min-w-[170px] rounded-lg border p-3 shadow-sm ${borderColor}`}>
+    <div className={`min-w-[160px] rounded-lg border p-3 shadow-sm ${borderColor}`}>
       <Handle type="target" position={Position.Left} className="!bg-stone-400" />
       <div className="flex items-center gap-2">
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${borderColor} ${textColor}`}>
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${borderColor} ${textColor}`}
+        >
           {icon}
         </span>
         <div className="min-w-0 flex-1">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, RotateCcw } from 'lucide-react';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact } from '@/mcp/utils/postgres-inspector';
 
@@ -80,8 +80,25 @@ export function ChatPanel({ onResult }: ChatPanelProps): JSX.Element {
     }
   }
 
+  function clearChat(): void {
+    setMessages([]);
+    setError(null);
+    setSuggestions(pickSuggestions(3));
+    onResult(null, null);
+  }
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      {messages.length > 0 && (
+        <button
+          type="button"
+          onClick={clearChat}
+          title="Vaciar chat"
+          className="absolute right-3 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-md text-stone-300 transition hover:bg-stone-100 hover:text-stone-500"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="space-y-3">
