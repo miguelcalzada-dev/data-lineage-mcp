@@ -13,7 +13,7 @@ const config: Config = {
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       colors: {
-        cream: '#F3EEE5',
+        cream: '#FAFAF9',
         ink: '#1A1916',
         stone: {
           50: '#fafaf9',
