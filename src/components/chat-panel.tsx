@@ -7,6 +7,7 @@ import { Spinner } from '@/components/spinner';
 import { Markdown } from '@/components/markdown';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
+import { apiPath } from '@/lib/api';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -126,7 +127,7 @@ export function ChatPanel({
     if (isFirst && onStart) onStart();
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(apiPath('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: next, schema }),

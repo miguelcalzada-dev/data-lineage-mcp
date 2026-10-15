@@ -4,7 +4,12 @@ const MCP_SERVER_URL = process.env.MCP_SERVER_URL ?? 'http://localhost:3001';
 const MCP_SERVER_SECRET_TOKEN = process.env.MCP_SERVER_SECRET_TOKEN ?? '';
 
 function buildUpstreamUrl(req: NextRequest): string {
-  const path = req.nextUrl.pathname.replace('/api/mcp', '');
+  // nextUrl.pathname incluye el basePath (/impactdb), asi que tomamos todo lo
+  // que hay despues de /api/mcp de forma robusta (con o sin basePath).
+  const marker = '/api/mcp';
+  const full = req.nextUrl.pathname;
+  const idx = full.indexOf(marker);
+  const path = idx >= 0 ? full.slice(idx + marker.length) : '';
   const upstream = new URL(`${path}${req.nextUrl.search}`, MCP_SERVER_URL);
   return upstream.toString();
 }

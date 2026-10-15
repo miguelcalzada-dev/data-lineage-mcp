@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { apiPath } from '@/lib/api';
 
 let client: Client | null = null;
 
@@ -11,7 +12,7 @@ export async function getMcpClient(): Promise<Client> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const token = process.env.MCP_SERVER_SECRET_TOKEN ?? '';
 
-  const transport = new SSEClientTransport(new URL(`${baseUrl}/api/mcp`));
+  const transport = new SSEClientTransport(new URL(apiPath('/api/mcp'), baseUrl));
   transport.onmessage = (message) => {
     // eslint-disable-next-line no-console
     console.log('[MCP Client message]', message);

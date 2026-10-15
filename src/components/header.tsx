@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { apiPath } from '@/lib/api';
 
 export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.Element {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking');
@@ -12,7 +13,7 @@ export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.El
 
     async function checkHealth(): Promise<void> {
       try {
-        const response = await fetch('/api/analyze', {
+        const response = await fetch(apiPath('/api/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ includeSchema: true }),

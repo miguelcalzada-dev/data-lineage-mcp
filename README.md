@@ -2,6 +2,10 @@
 
 Analizador de **linaje de datos e impacto de cambios** para bases de datos PostgreSQL. Conecta tu base de datos, pregunta en lenguaje natural y descubre qué se rompería antes de aplicar un cambio, visualizándolo en un grafo interactivo.
 
+**Demo en producción:** <https://miguelcalzada.com/impactdb>
+
+Este proyecto se sirve como subruta de [miguelcalzada.com](https://miguelcalzada.com) mediante un `rewrite` de Next.js. La app define `basePath: "/impactdb"` (ver [`next.config.js`](./next.config.js)) para que sus rutas y assets funcionen bajo esa URL.
+
 ---
 
 ## Características
@@ -86,6 +90,8 @@ npm run mcp:server
 3. Añade las variables de entorno de la tabla anterior.
 4. Railway detecta `package.json` y ejecuta `npm run build && npm run start`.
 5. (Opcional) despliega el servidor MCP como servicio aparte con `npm run mcp:server` y apunta `MCP_SERVER_URL`.
+
+> La app usa `basePath: "/impactdb"`, por lo que en Railway vive en `/impactdb`. `/` redirige a la URL canónica `https://miguelcalzada.com/impactdb`.
 
 ---
 

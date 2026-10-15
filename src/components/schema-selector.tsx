@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { SchemaMetadata } from '@/mcp/utils/postgres-inspector';
+import { apiPath } from '@/lib/api';
 
 export interface SchemaSelectorProps {
   onSelect: (table: string, column: string) => void;
@@ -29,7 +30,7 @@ export function SchemaSelector({ onSelect, schema: externalSchema = null }: Sche
     async function loadSchema(): Promise<void> {
       setLoading(true);
       try {
-        const response = await fetch('/api/analyze', {
+        const response = await fetch(apiPath('/api/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ includeSchema: true }),

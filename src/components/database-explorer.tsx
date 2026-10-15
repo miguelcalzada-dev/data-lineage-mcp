@@ -5,6 +5,7 @@ import { Table2, Eye, ChevronDown, Search, Upload, Undo2, Download, HelpCircle, 
 import type { SchemaMetadata, TableInfo } from '@/mcp/utils/postgres-inspector';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import { isValidSchema } from '@/mcp/utils/schema-analyzer';
+import { apiPath } from '@/lib/api';
 
 export interface DatabaseExplorerProps {
   schema?: SchemaMetadata | null;
@@ -31,7 +32,7 @@ export function DatabaseExplorer({
 
     async function load(): Promise<void> {
       try {
-        const response = await fetch('/api/analyze', {
+        const response = await fetch(apiPath('/api/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ includeSchema: true }),

@@ -16,6 +16,7 @@ import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgre
 import type { GraphMode } from '@/components/impact-graph';
 import { isValidSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
+import { apiPath } from '@/lib/api';
 import { GradientText } from '@/components/gradient-text';
 
 const objectTypeLabel: Record<string, string> = {
@@ -81,7 +82,7 @@ export default function HomePage(): JSX.Element {
       setError(null);
 
       try {
-        const response = await fetch('/api/schema-graph', {
+        const response = await fetch(apiPath('/api/schema-graph'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schema: (override ?? customSchema) ?? undefined }),
@@ -109,7 +110,7 @@ export default function HomePage(): JSX.Element {
       setError(null);
 
       try {
-        const response = await fetch('/api/analyze', {
+        const response = await fetch(apiPath('/api/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tableName: table, columnName: column, schema: customSchema ?? undefined }),
