@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database } from 'lucide-react';
+import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Sparkle } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
 import { DatabaseExplorer } from '@/components/database-explorer';
@@ -187,8 +187,9 @@ export default function HomePage(): JSX.Element {
               animate={{ opacity: 1, y: 0 }}
               className="text-center"
             >
-              <h1 className="font-mono text-2xl font-bold italic tracking-tight text-orange-600">
-                Explora el impacto de tus cambios
+              <h1 className="flex items-center justify-center gap-3 text-balance text-center font-sans text-3xl font-semibold tracking-tight text-stone-900">
+                <Sparkle className="h-7 w-7 shrink-0 text-orange-500" />
+                <span>Explora el impacto de tus cambios</span>
               </h1>
             </motion.div>
           )}

@@ -142,14 +142,8 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
 
   if (!graph) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-stone-200 bg-white">
-          <Table2 className="h-5 w-5 text-stone-400" />
-        </div>
-        <p className="text-sm font-semibold text-stone-600">Aquí verás el mapa de impacto</p>
-        <p className="max-w-sm text-sm leading-relaxed text-stone-500">
-          Pregunta al asistente o usa «Explorar dependencias» para visualizar relaciones.
-        </p>
+      <div className="flex h-full items-center justify-center px-8">
+        <p className="text-sm text-stone-400">El mapa de impacto aparecerá aquí tras realizar un análisis.</p>
       </div>
     );
   }

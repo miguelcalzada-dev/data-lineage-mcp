@@ -1,93 +1,140 @@
 # Data Lineage & Impact Analyzer
 
-A production-ready monorepo for analyzing PostgreSQL data lineage and predicting breaking changes using the Model Context Protocol (MCP).
+Analizador de **linaje de datos e impacto de cambios** para bases de datos PostgreSQL. Conecta tu base de datos, pregunta en lenguaje natural y descubre qué se rompería antes de aplicar un cambio, visualizándolo en un grafo interactivo.
 
-## Architecture
+---
 
-- **Frontend**: Next.js 14 App Router, TypeScript, Tailwind CSS, Lucide React, React Flow.
-- **Backend / MCP Server**: Node.js/TypeScript, Hono, `@modelcontextprotocol/sdk`, `@supabase/supabase-js`.
-- **Database**: Supabase (PostgreSQL).
-- **Deployment target**: Railway.
+## Características
 
-## Project Structure
+- **Chat con IA** (Groq) — pregunta en lenguaje natural qué impacto tendría un cambio en tu base de datos.
+- **Análisis de impacto** — predice qué vistas, funciones y claves foráneas se romperían al ejecutar un `ALTER` / `DROP` / `RENAME`.
+- **Grafo de dependencias interactivo** — visualiza las relaciones y los objetos afectados (arrastra, haz zoom, explora).
+- **Visualizador de esquema** — explora tablas, columnas, vistas y funciones con búsqueda.
+- **Base de datos propia (JSON)** — analiza cualquier esquema sin conectarte a nada: exporta el tuyo o sube un JSON.
+- **Herramientas MCP** — 4 herramientas del estándar Model Context Protocol, listas para conectar agentes externos (Claude Desktop, Cursor, etc.).
+
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|------|------------|
+| Frontend | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Framer Motion, React Flow, Lucide React |
+| Backend / MCP | Node.js, TypeScript, Express, `@modelcontextprotocol/sdk`, `pg`, `@supabase/supabase-js` |
+| IA | Groq (`gpt-oss` / `llama`) con *function calling* |
+| Base de datos | Supabase (PostgreSQL) |
+| Despliegue | Railway |
+
+---
+
+## Arquitectura
 
 ```
-├── package.json
-├── tsconfig.json
-├── .env.example
-├── README.md
-├── supabase/
-│   └── seed.sql
-├── src/
-│   ├── lib/
-│   │   ├── supabase.ts
-│   │   └── mcp-client.ts
-│   ├── mcp/
-│   │   ├── server.ts
-│   │   ├── tools/
-│   │   │   ├── get-schema.ts
-│   │   │   ├── trace-lineage.ts
-│   │   │   ├── predict-impact.ts
-│   │   │   └── generate-graph.ts
-│   │   └── utils/
-│   │       └── postgres-inspector.ts
-│   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   ├── globals.css
-│   │   └── api/
-│   │       ├── analyze/route.ts
-│   │       └── mcp/[...mcp]/route.ts
-│   └── components/
-│       ├── header.tsx
-│       ├── schema-selector.tsx
-│       ├── impact-graph.tsx
-│       ├── mcp-live-inspector.tsx
-│       ├── migration-editor.tsx
-│       └── risk-badge.tsx
+Cliente (React)
+   │
+   ├─ /api/chat      → chat con IA + herramientas MCP (Groq)
+   ├─ /api/analyze   → análisis de impacto / linaje
+   ├─ /api/schema-graph → grafo del esquema
+   └─ /api/mcp       → proxy HTTP/SSE al servidor MCP
+
+Motor de análisis (schema-analyzer.ts)
+   ├─ PostgresProvider (information_schema / pg_catalog)
+   └─ JsonSchemaProvider (esquema cargado desde JSON)
 ```
 
-## Quick Start
+El análisis de impacto y linaje está desacoplado de la fuente de datos: puede leer de una base PostgreSQL real **o** de un esquema JSON en memoria.
 
-### 1. Supabase Setup
+---
 
-1. Create a new Supabase project at https://supabase.com.
-2. Go to **Project Settings > API** and copy:
-   - `SUPABASE_URL` -> `NEXT_PUBLIC_SUPABASE_URL`
-   - `service_role key` -> `SUPABASE_SERVICE_ROLE_KEY`
-3. Go to **Project Settings > Database** and copy the **connection string** (use the session or pooled string) -> `DATABASE_URL`.
-4. Open the **SQL Editor** and run the contents of `supabase/seed.sql`.
-4. Ensure the service role key has permission to read `information_schema`, `pg_catalog`, and any application schemas.
+## Configuración
 
-### 2. Local Environment
+Copia `.env.example` a `.env.local` (o configura las variables en Railway):
 
-```bash
-cp .env.example .env.local
-# Fill in your Supabase credentials, DATABASE_URL, MCP_SERVER_SECRET_TOKEN and MCP_SERVER_URL
-```
+| Variable | Descripción |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL de tu proyecto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key de Supabase |
+| `DATABASE_URL` | Connection string de PostgreSQL (usa el pooler de Supabase) |
+| `GROQ_API_KEY` | Clave gratuita de [Groq](https://console.groq.com/keys) |
+| `GROQ_MODEL` | Modelo de Groq (por defecto `openai/gpt-oss-120b`) |
+| `MCP_SERVER_SECRET_TOKEN` | Token para el servidor MCP |
+| `MCP_SERVER_URL` | URL del servidor MCP (si se despliega aparte) |
+| `PORT` | Puerto del servidor |
 
-Install dependencies and run:
+---
+
+## Instalación local
 
 ```bash
 npm install
-npm run dev
+cp .env.example .env.local   # rellena tus credenciales
+npm run dev                   # app en http://localhost:3000
 ```
 
-### 3. Railway Deployment
+Para el servidor MCP como proceso independiente:
 
-1. Push the repository to GitHub.
-2. Create a new Railway project and connect the repository.
-3. Add the environment variables from `.env.example` in **Variables**.
-4. Railway will use the root `package.json` scripts; `npm run build && npm run start` runs the Next.js app.
-5. Deploy the MCP server as a separate Railway service using `npm run mcp:server`, then set `MCP_SERVER_URL` to that service URL so the Next.js `/api/mcp` proxy can reach it.
+```bash
+npm run mcp:server
+```
 
-## MCP Tools Reference
+---
 
-| Tool                      | Description                                                                 |
-|---------------------------|-----------------------------------------------------------------------------|
-| `get_schema_metadata`     | Returns tables, columns, primary keys, foreign keys, views and routines.    |
-| `trace_column_lineage`    | Traces dependencies for a given table/column (FKs, views, routines).        |
-| `predict_breaking_changes`| Analyzes a DDL statement and reports broken FKs, views and risk level.      |
-| `generate_graph_definition`| Converts lineage trees into nodes and edges for the frontend graph.        |
+## Despliegue en Railway
 
-The MCP server is exposed at `/api/mcp` via HTTP/SSE and requires the `Authorization: Bearer <MCP_SERVER_SECRET_TOKEN>` header.
+1. Sube el repositorio a GitHub.
+2. En Railway: **New Project → Deploy from GitHub repo** y selecciona el repo.
+3. Añade las variables de entorno de la tabla anterior.
+4. Railway detecta `package.json` y ejecuta `npm run build && npm run start`.
+5. (Opcional) despliega el servidor MCP como servicio aparte con `npm run mcp:server` y apunta `MCP_SERVER_URL`.
+
+---
+
+## Herramientas MCP
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `get_schema_metadata` | Devuelve tablas, columnas, claves, vistas y rutinas. |
+| `trace_column_lineage` | Devuelve qué objetos dependen de una tabla/columna. |
+| `predict_breaking_changes` | Analiza un DDL y predice qué se rompe (riesgo alto/medio/bajo). |
+| `generate_graph_definition` | Genera nodos y aristas para el grafo de dependencias. |
+
+---
+
+## Analizar tu propia base de datos
+
+En la pestaña **Base de datos** puedes:
+
+1. **Exportar (JSON)** — descarga el esquema actual de la base conectada.
+2. **Cargar (JSON)** — sube un esquema propio para analizarlo sin conexión.
+
+El JSON debe seguir la estructura `{ tables, views, routines, foreignKeys, primaryKeys }`. Consulta el botón **"¿Cómo consigo el JSON de mi base de datos?"** dentro de la app para ver un ejemplo completo.
+
+---
+
+## Estructura del proyecto
+
+```
+src/
+├── app/
+│   ├── api/analyze/route.ts        # orquestador de análisis
+│   ├── api/chat/route.ts           # chat con IA (Groq + tools)
+│   ├── api/schema-graph/route.ts   # grafo del esquema
+│   ├── api/mcp/[...mcp]/route.ts   # proxy MCP (SSE)
+│   ├── layout.tsx / page.tsx       # UI principal
+│   └── globals.css
+├── components/                     # header, chat, grafo, explorador, tabs...
+├── mcp/
+│   ├── server.ts                   # servidor MCP (Express + SSE)
+│   ├── tools/                      # las 4 herramientas MCP
+│   └── utils/
+│       ├── postgres-inspector.ts   # lectura de PostgreSQL
+│       └── schema-analyzer.ts      # motor de análisis en memoria
+├── lib/                            # supabase, spotlight hook
+└── supabase/seed.sql               # esquema de prueba (>8 tablas, FKs, vistas, funciones)
+```
+
+---
+
+## Licencia
+
+MIT
