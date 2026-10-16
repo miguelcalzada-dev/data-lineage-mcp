@@ -1,5 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
@@ -59,44 +60,33 @@ const prompts = [
   },
 ];
 
-const server = new Server(
-  {
-    name: 'impactdb-mcp',
-    version: '0.1.0',
-  },
-  {
-    capabilities: {
-      tools: {},
-      resources: {},
-      prompts: {},
-    },
-  }
-);
+function createMcpServer(): Server {
+  const server = new Server(
+    { name: 'impactdb-mcp', version: '0.1.0' },
+    { capabilities: { tools: {}, resources: {}, prompts: {} } }
+  );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
     })),
-  };
-});
+  }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const tool = toolMap.get(request.params.name);
-  if (!tool) {
-    throw new Error(`Unknown tool: ${request.params.name}`);
-  }
-  const args = (request.params.arguments as Record<string, unknown>) ?? {};
-  const targetSchema = typeof args.schema === 'string' ? args.schema : undefined;
-  const context: ToolContext = { targetSchema };
-  log('info', 'mcp tool call', { tool: tool.name, targetSchema });
-  return tool.execute(args, context);
-});
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const tool = toolMap.get(request.params.name);
+    if (!tool) {
+      throw new Error(`Unknown tool: ${request.params.name}`);
+    }
+    const args = (request.params.arguments as Record<string, unknown>) ?? {};
+    const targetSchema = typeof args.schema === 'string' ? args.schema : undefined;
+    const context: ToolContext = { targetSchema, preferredSchema: targetSchema };
+    log('info', 'mcp tool call', { tool: tool.name, targetSchema });
+    return tool.execute(args, context);
+  });
 
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  return {
+  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
       {
         uri: SCHEMA_RESOURCE_URI,
@@ -106,77 +96,100 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         mimeType: 'application/json',
       },
     ],
-  };
-});
+  }));
 
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  if (request.params.uri !== SCHEMA_RESOURCE_URI) {
-    throw new Error(`Unknown resource: ${request.params.uri}`);
-  }
-
-  const schema = await getFullSchema();
-  return {
-    contents: [
-      {
-        uri: SCHEMA_RESOURCE_URI,
-        mimeType: 'application/json',
-        text: JSON.stringify(schema),
-      },
-    ],
-  };
-});
-
-server.setRequestHandler(ListPromptsRequestSchema, async () => {
-  return { prompts };
-});
-
-server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  const args = (request.params.arguments ?? {}) as Record<string, string>;
-
-  if (request.params.name === 'impact-analysis') {
-    const ddl = args.ddl ?? '';
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    if (request.params.uri !== SCHEMA_RESOURCE_URI) {
+      throw new Error(`Unknown resource: ${request.params.uri}`);
+    }
+    const schema = await getFullSchema();
     return {
-      description: 'Análisis de impacto de un DDL',
-      messages: [
+      contents: [
         {
-          role: 'user' as const,
-          content: {
-            type: 'text' as const,
-            text: `Usa predict_breaking_changes para analizar el impacto de esta sentencia y resume el riesgo y los objetos afectados:\n\n${ddl}`,
-          },
+          uri: SCHEMA_RESOURCE_URI,
+          mimeType: 'application/json',
+          text: JSON.stringify(schema),
         },
       ],
     };
-  }
+  });
 
-  if (request.params.name === 'column-lineage') {
-    const table = args.table ?? '';
-    const column = args.column ?? '';
-    return {
-      description: 'Linaje de una columna',
-      messages: [
-        {
-          role: 'user' as const,
-          content: {
-            type: 'text' as const,
-            text: `Usa trace_column_lineage para listar qué objetos dependen de ${table}.${column}, tanto directa como indirectamente.`,
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const args = (request.params.arguments ?? {}) as Record<string, string>;
+
+    if (request.params.name === 'impact-analysis') {
+      return {
+        description: 'Análisis de impacto de un DDL',
+        messages: [
+          {
+            role: 'user' as const,
+            content: {
+              type: 'text' as const,
+              text: `Usa predict_breaking_changes para analizar el impacto de esta sentencia y resume el riesgo y los objetos afectados:\n\n${args.ddl ?? ''}`,
+            },
           },
-        },
-      ],
-    };
-  }
+        ],
+      };
+    }
 
-  throw new Error(`Unknown prompt: ${request.params.name}`);
+    if (request.params.name === 'column-lineage') {
+      return {
+        description: 'Linaje de una columna',
+        messages: [
+          {
+            role: 'user' as const,
+            content: {
+              type: 'text' as const,
+              text: `Usa trace_column_lineage para listar qué objetos dependen de ${args.table ?? ''}.${args.column ?? ''}, tanto directa como indirectamente.`,
+            },
+          },
+        ],
+      };
+    }
+
+    throw new Error(`Unknown prompt: ${request.params.name}`);
+  });
+
+  return server;
+}
+
+app.post(
+  '/mcp',
+  authenticate,
+  express.json({ limit: '1mb' }),
+  async (req: Request, res: Response) => {
+    const server = createMcpServer();
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on('close', () => {
+      void transport.close();
+      void server.close();
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  }
+);
+
+app.get('/mcp', authenticate, (_req: Request, res: Response) => {
+  res.status(405).json({ error: 'Method Not Allowed' });
 });
 
-const transports = new Map<string, SSEServerTransport>();
+app.delete('/mcp', authenticate, (_req: Request, res: Response) => {
+  res.status(405).json({ error: 'Method Not Allowed' });
+});
+
+const sseSessions = new Map<string, { transport: SSEServerTransport; server: Server }>();
 
 app.get('/sse', authenticate, async (_req: Request, res: Response) => {
+  const server = createMcpServer();
   const transport = new SSEServerTransport('/message', res);
-  transports.set(transport.sessionId, transport);
+  sseSessions.set(transport.sessionId, { transport, server });
 
   res.on('close', () => {
-    transports.delete(transport.sessionId);
+    sseSessions.delete(transport.sessionId);
+    void transport.close();
+    void server.close();
   });
 
   await server.connect(transport);
@@ -193,13 +206,13 @@ app.post(
       return;
     }
 
-    const transport = transports.get(sessionId);
-    if (!transport) {
+    const session = sseSessions.get(sessionId);
+    if (!session) {
       res.status(400).json({ error: 'Invalid or expired sessionId' });
       return;
     }
 
-    await transport.handlePostMessage(req, res);
+    await session.transport.handlePostMessage(req, res);
   }
 );
 

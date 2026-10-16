@@ -124,7 +124,7 @@ La web **no** necesita el servidor MCP: ejecuta las herramientas internamente. E
 5. Redeploy del web. El indicador "MCP" del pie se pone verde cuando `/api/health` obtiene `200` de `${MCP_SERVER_URL}/health`.
 
 ### Conectar un cliente MCP
-El servidor habla **SSE** (`/sse` + `/message`) y exige `Authorization: Bearer <token>`. Ejemplo para **opencode** (en `~/.config/opencode/opencode.json`):
+El servidor habla **Streamable HTTP** en `/mcp` (recomendado) y también mantiene **SSE** en `/sse` para clientes antiguos. Exige `Authorization: Bearer <token>`. Ejemplo para **opencode** (en `~/.config/opencode/opencode.json`):
 
 ```json
 {
@@ -132,14 +132,14 @@ El servidor habla **SSE** (`/sse` + `/message`) y exige `Authorization: Bearer <
   "mcp": {
     "impactdb": {
       "type": "remote",
-      "url": "https://<dominio-mcp>/sse",
+      "url": "https://<dominio-mcp>/mcp",
       "headers": { "Authorization": "Bearer <MCP_SERVER_SECRET_TOKEN>" }
     }
   }
 }
 ```
 
-Reinicia el cliente tras guardar. Si tu cliente exige *Streamable HTTP* en lugar de SSE, hay que migrar el transporte del servidor (cambio pequeño).
+Reinicia el cliente tras guardar.
 
 ## Herramientas MCP
 
