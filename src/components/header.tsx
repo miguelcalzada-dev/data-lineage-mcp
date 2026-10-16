@@ -11,9 +11,22 @@ interface HealthResponse {
   mcp?: { ok: boolean; configured?: boolean; error?: string };
 }
 
-export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.Element {
+export function Header({
+  align = 'left',
+  onOpenPalette,
+}: {
+  align?: 'left' | 'right';
+  onOpenPalette?: () => void;
+}): JSX.Element {
   const [dbStatus, setDbStatus] = useState<Status>('checking');
   const [mcpStatus, setMcpStatus] = useState<Status>('checking');
+  const [shortcut, setShortcut] = useState<string>('⌘K');
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && !/mac|iphone|ipad/i.test(navigator.userAgent)) {
+      setShortcut('Ctrl K');
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +70,18 @@ export function Header({ align = 'left' }: { align?: 'left' | 'right' }): JSX.El
         align === 'right' ? 'right-6' : 'left-4'
       }`}
     >
+      {onOpenPalette && (
+        <button
+          type="button"
+          onClick={onOpenPalette}
+          title="Paleta de comandos: acciones y linaje"
+          aria-label="Abrir paleta de comandos"
+          className="pointer-events-auto hidden items-center gap-1 rounded-md border border-stone-200 px-1.5 py-0.5 text-[10px] text-stone-400 opacity-60 transition hover:text-stone-600 hover:opacity-100 sm:flex dark:border-night-700 dark:text-night-500 dark:hover:text-night-300"
+        >
+          Comandos
+          <kbd className="font-sans tracking-tight">{shortcut}</kbd>
+        </button>
+      )}
       <div className="pointer-events-auto">
         <ThemeToggle />
       </div>

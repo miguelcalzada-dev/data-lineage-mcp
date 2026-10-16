@@ -351,7 +351,7 @@ export default function HomePage(): JSX.Element {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-night-100">
-      <Header align={hasStarted ? 'right' : 'left'} />
+      <Header align={hasStarted ? 'right' : 'left'} onOpenPalette={() => setPaletteOpen(true)} />
 
       <CommandPalette
         open={paletteOpen}
