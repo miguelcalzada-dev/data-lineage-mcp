@@ -13,7 +13,6 @@ import {
   Upload,
   FileText,
   FileJson,
-  History,
 } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
@@ -23,6 +22,7 @@ import { RiskBadge } from '@/components/risk-badge';
 import { FluidTabs } from '@/components/fluid-tabs';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { CommandPalette, type CommandAction } from '@/components/command-palette';
+import { HistoryMenu } from '@/components/history-menu';
 import { buildMarkdownReport, downloadTextFile } from '@/lib/report';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
@@ -303,6 +303,17 @@ export default function HomePage(): JSX.Element {
     downloadTextFile('impactdb-grafo.json', JSON.stringify(graph, null, 2), 'application/json');
   }, [graph]);
 
+  const handleHistorySelect = useCallback(
+    (id: string): void => {
+      const entry = history.find((item) => item.id === id);
+      if (!entry) return;
+      setGraph(entry.graph);
+      setImpact(entry.impact);
+      setGraphMode('impact');
+    },
+    [history]
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -505,36 +516,7 @@ export default function HomePage(): JSX.Element {
               className="relative flex min-w-0 flex-1 flex-col"
             >
               <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-1.5 dark:border-night-700">
-                <details className="group relative">
-                  <summary
-                    className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 dark:text-night-400 dark:hover:bg-night-700 dark:hover:text-night-100"
-                    aria-disabled={history.length === 0}
-                  >
-                    <History className="h-3.5 w-3.5" />
-                    Historial {history.length > 0 ? `(${history.length})` : ''}
-                  </summary>
-                  <div className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border border-stone-200 bg-white p-1 shadow-lg dark:border-night-700 dark:bg-night-800">
-                    {history.length === 0 ? (
-                      <p className="px-2 py-3 text-xs text-stone-400">Todavía no hay análisis.</p>
-                    ) : (
-                      history.map((entry) => (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          onClick={() => {
-                            setGraph(entry.graph);
-                            setImpact(entry.impact);
-                            setGraphMode('impact');
-                          }}
-                          className="block w-full truncate rounded-md px-2 py-1.5 text-left text-xs text-stone-600 transition hover:bg-stone-100 dark:text-night-300 dark:hover:bg-night-700"
-                          title={entry.label}
-                        >
-                          {entry.label}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </details>
+                <HistoryMenu entries={history} onSelect={handleHistorySelect} />
 
                 <div className="flex items-center gap-1">
                   <button

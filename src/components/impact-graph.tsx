@@ -12,7 +12,8 @@ import ReactFlow, {
   Handle,
   Position,
 } from 'reactflow';
-import { Table2, Eye, FileCode, Link2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Table2, Eye, FileCode, Link2, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import type { GraphDefinition, GraphNode, GraphEdge } from '@/mcp/tools/generate-graph';
 
 function layoutLayers(nodes: GraphNode[], edges: GraphEdge[]): Map<string, { x: number; y: number }> {
@@ -164,6 +165,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [hiddenSchemas, setHiddenSchemas] = useState<Set<string>>(new Set());
   const [groupBySchema, setGroupBySchema] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const allNodes = graph?.nodes ?? [];
@@ -340,60 +342,90 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
         <Controls />
         <Panel
           position="top-left"
-          className="max-w-[220px] rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm dark:border-night-700 dark:bg-night-800/95 dark:text-night-300"
+          className="max-w-[230px] overflow-hidden rounded-lg border border-stone-200 bg-white/95 text-[11px] text-stone-600 shadow-sm dark:border-night-700 dark:bg-night-800/95 dark:text-night-300"
         >
-          <p className="mb-1.5 font-semibold text-stone-700 dark:text-night-200">Filtros</p>
-          <div className="space-y-1.5">
-            {FILTERABLE_TYPES.map((type) => {
-              const off = hiddenTypes.has(type);
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => toggleType(type)}
-                  aria-pressed={!off}
-                  className={`flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 transition ${
-                    off ? 'text-stone-300 line-through dark:text-night-600' : 'hover:bg-stone-100 dark:hover:bg-night-700'
-                  }`}
-                >
-                  <span>{typeLabel[type]}</span>
-                  <span className="text-[10px] opacity-70">{off ? 'off' : 'on'}</span>
-                </button>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2 font-semibold text-stone-700 transition hover:bg-stone-100 dark:text-night-200 dark:hover:bg-night-700"
+          >
+            <span className="flex items-center gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filtros
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
 
-          {schemaList.length > 1 && (
-            <>
-              <p className="mb-1.5 mt-2 font-semibold text-stone-700 dark:text-night-200">Esquemas</p>
-              <div className="flex flex-wrap gap-1">
-                {schemaList.map((schemaName) => {
-                  const off = hiddenSchemas.has(schemaName);
-                  return (
-                    <button
-                      key={schemaName}
-                      type="button"
-                      onClick={() => toggleSchema(schemaName)}
-                      className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
-                        off
-                          ? 'border-stone-200 text-stone-300 dark:border-night-700 dark:text-night-600'
-                          : 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300'
-                      }`}
-                    >
-                      {schemaName}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={() => setGroupBySchema((v) => !v)}
-                className="mt-2 w-full rounded px-1.5 py-1 text-left text-[11px] text-stone-500 transition hover:bg-stone-100 dark:text-night-400 dark:hover:bg-night-700"
+          <AnimatePresence initial={false}>
+            {filtersOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="overflow-hidden"
               >
-                {groupBySchema ? '✓ ' : ''}Agrupar por esquema
-              </button>
-            </>
-          )}
+                <div className="border-t border-stone-100 px-3 py-2 dark:border-night-700">
+                  <div className="space-y-1.5">
+                    {FILTERABLE_TYPES.map((type) => {
+                      const off = hiddenTypes.has(type);
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => toggleType(type)}
+                          aria-pressed={!off}
+                          className={`flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 transition ${
+                            off
+                              ? 'text-stone-300 line-through dark:text-night-600'
+                              : 'hover:bg-stone-100 dark:hover:bg-night-700'
+                          }`}
+                        >
+                          <span>{typeLabel[type]}</span>
+                          <span className="text-[10px] opacity-70">{off ? 'off' : 'on'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {schemaList.length > 1 && (
+                    <>
+                      <p className="mb-1.5 mt-2 font-semibold text-stone-700 dark:text-night-200">Esquemas</p>
+                      <div className="flex flex-wrap gap-1">
+                        {schemaList.map((schemaName) => {
+                          const off = hiddenSchemas.has(schemaName);
+                          return (
+                            <button
+                              key={schemaName}
+                              type="button"
+                              onClick={() => toggleSchema(schemaName)}
+                              className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
+                                off
+                                  ? 'border-stone-200 text-stone-300 dark:border-night-700 dark:text-night-600'
+                                  : 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300'
+                              }`}
+                            >
+                              {schemaName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setGroupBySchema((v) => !v)}
+                        className="mt-2 w-full rounded px-1.5 py-1 text-left text-[11px] text-stone-500 transition hover:bg-stone-100 dark:text-night-400 dark:hover:bg-night-700"
+                      >
+                        {groupBySchema ? '✓ ' : ''}Agrupar por esquema
+                      </button>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Panel>
 
         {mode === 'impact' && (

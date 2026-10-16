@@ -19,6 +19,7 @@ import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import { normalizeSchema, auditSchema, diffSchemas, type SchemaDiff } from '@/mcp/utils/schema-analyzer';
 import { apiPath } from '@/lib/api';
 import { FluidTabs } from '@/components/fluid-tabs';
+import { AnimataModal } from '@/components/animata-modal';
 import type { DatabasePreset } from '@/data/schemas';
 
 export interface DatabaseExplorerProps {
@@ -46,31 +47,10 @@ export function DatabaseExplorer({
   const [search, setSearch] = useState<string>('');
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [diff, setDiff] = useState<{ name: string; result: SchemaDiff } | null>(null);
+  const [diffOpen, setDiffOpen] = useState<boolean>(false);
   const [reloadKey, setReloadKey] = useState<number>(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const diffFileRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const diffDialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showInfo && !diff) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    if (showInfo) dialogRef.current?.focus();
-    if (diff) diffDialogRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setShowInfo(false);
-        setDiff(null);
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      previouslyFocused?.focus?.();
-    };
-  }, [showInfo, diff]);
 
   useEffect(() => {
     if (schema) return;
@@ -141,6 +121,7 @@ export function DatabaseExplorer({
           name: file.name.replace(/\.[^.]+$/, ''),
           result: diffSchemas(effective, parsed),
         });
+        setDiffOpen(true);
       } catch {
         setError('No se pudo leer el archivo JSON.');
       }
@@ -346,21 +327,13 @@ export function DatabaseExplorer({
         )}
       </div>
 
-      {showInfo && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 p-4 backdrop-blur-sm"
-          onClick={() => setShowInfo(false)}
-        >
-          <div
-            ref={dialogRef}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="db-help-title"
-            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl focus:outline-none dark:border-night-700 dark:bg-night-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
+      <AnimataModal
+        open={showInfo}
+        onClose={() => setShowInfo(false)}
+        labelledBy="db-help-title"
+        className="no-scrollbar max-h-[80vh] overflow-y-auto"
+      >
+        <div className="flex items-start justify-between gap-4">
               <h3 id="db-help-title" className="text-base font-semibold text-stone-900 dark:text-night-100">
                 ¿Cómo consigo el JSON de mi base de datos?
               </h3>
@@ -429,31 +402,23 @@ export function DatabaseExplorer({
                 dependencias. Si no lo tienes, puedes dejarlo vacío.
               </p>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimataModal>
 
-      {diff && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 p-4 backdrop-blur-sm"
-          onClick={() => setDiff(null)}
-        >
-          <div
-            ref={diffDialogRef}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="db-diff-title"
-            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl focus:outline-none dark:border-night-700 dark:bg-night-900"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <AnimataModal
+        open={diffOpen}
+        onClose={() => setDiffOpen(false)}
+        labelledBy="db-diff-title"
+        className="no-scrollbar max-h-[80vh] overflow-y-auto"
+      >
+        {diff && (
+          <>
             <div className="flex items-start justify-between gap-4">
               <h3 id="db-diff-title" className="text-base font-semibold text-stone-900 dark:text-night-100">
                 Comparación con “{diff.name}”
               </h3>
               <button
                 type="button"
-                onClick={() => setDiff(null)}
+                onClick={() => setDiffOpen(false)}
                 className="rounded-md p-1 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-night-700 dark:hover:text-night-200"
               >
                 <X className="h-4 w-4" />
@@ -507,9 +472,9 @@ export function DatabaseExplorer({
                 diff.result.addedForeignKeys.length === 0 &&
                 diff.result.removedForeignKeys.length === 0 && <p>No hay diferencias.</p>}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimataModal>
     </div>
   );
 }
