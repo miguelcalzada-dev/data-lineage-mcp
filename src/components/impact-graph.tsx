@@ -81,6 +81,28 @@ function layoutLayers(nodes: GraphNode[], edges: GraphEdge[]): Map<string, { x: 
   return positions;
 }
 
+function layoutBySchema(nodes: GraphNode[]): Map<string, { x: number; y: number }> {
+  const schemas = Array.from(new Set(nodes.map((n) => n.schema))).sort();
+  const positions = new Map<string, { x: number; y: number }>();
+  const perRow = 4;
+  const colGap = 260;
+  const rowGap = 130;
+  const bandGap = 110;
+  let offsetY = 0;
+
+  for (const schema of schemas) {
+    const group = nodes.filter((n) => n.schema === schema);
+    group.forEach((node, index) => {
+      const row = Math.floor(index / perRow);
+      const col = index % perRow;
+      positions.set(node.id, { x: col * colGap, y: offsetY + row * rowGap });
+    });
+    offsetY += Math.ceil(group.length / perRow) * rowGap + bandGap;
+  }
+
+  return positions;
+}
+
 export type GraphMode = 'impact' | 'schema';
 
 export interface ImpactGraphProps {
@@ -112,6 +134,8 @@ const edgeLabel: Record<string, string> = {
   affected_column: 'columna afectada',
 };
 
+const FILTERABLE_TYPES: Array<GraphNode['type']> = ['table', 'view', 'routine', 'foreign_key'];
+
 function useIsDark(): boolean {
   const [isDark, setIsDark] = useState(false);
 
@@ -137,12 +161,30 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
 function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphProps): JSX.Element {
   const { fitView } = useReactFlow();
   const isDark = useIsDark();
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [hiddenSchemas, setHiddenSchemas] = useState<Set<string>>(new Set());
+  const [groupBySchema, setGroupBySchema] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { nodes, edges } = useMemo(() => {
-    if (!graph) return { nodes: [], edges: [] };
+  const allNodes = graph?.nodes ?? [];
+  const schemaList = useMemo(
+    () => Array.from(new Set(allNodes.map((n) => n.schema))).sort(),
+    [allNodes]
+  );
 
-    const gNodes = graph.nodes ?? [];
-    const gEdges = graph.edges ?? [];
+  const base = useMemo(() => {
+    if (!graph) return { nodes: [] as Node[], edges: [] as Edge[], visibleIds: new Set<string>() };
+
+    const gNodes = (graph.nodes ?? []).filter(
+      (node) => !hiddenTypes.has(node.type) && !hiddenSchemas.has(node.schema)
+    );
+    const visibleIds = new Set(gNodes.map((n) => n.id));
+    const gEdges = (graph.edges ?? []).filter(
+      (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target)
+    );
+
+    const nodeTypeFor = (node: GraphNode): string =>
+      node.type === 'view' ? 'view' : node.type;
 
     if (mode === 'schema') {
       const cols = Math.max(1, Math.ceil(Math.sqrt(gNodes.length)));
@@ -158,10 +200,11 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
         },
         data: {
           label: node.label,
-          type: node.type,
+          type: nodeTypeFor(node),
           affected: false,
           schema: node.schema,
           isOrigin: false,
+          dimmed: false,
         },
       }));
 
@@ -173,12 +216,12 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
         style: { stroke: isDark ? '#57534e' : '#e0ddd8', strokeWidth: 1 },
       }));
 
-      return { nodes: gridNodes, edges: gridEdges };
+      return { nodes: gridNodes, edges: gridEdges, visibleIds };
     }
 
     const targetIds = new Set(gEdges.map((e) => e.target));
     const originId = gNodes.find((n) => !targetIds.has(n.id))?.id ?? gNodes[0]?.id;
-    const positions = layoutLayers(gNodes, gEdges);
+    const positions = groupBySchema ? layoutBySchema(gNodes) : layoutLayers(gNodes, gEdges);
 
     const flowNodes: Node[] = gNodes.map((node) => ({
       id: node.id,
@@ -186,10 +229,11 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
       position: positions.get(node.id) ?? { x: 0, y: 0 },
       data: {
         label: node.label,
-        type: node.type,
+        type: nodeTypeFor(node),
         affected: node.affected,
         schema: node.schema,
         isOrigin: node.id === originId,
+        dimmed: false,
       },
     }));
 
@@ -207,17 +251,55 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
       labelBgBorderRadius: 4,
     }));
 
-    return { nodes: flowNodes, edges: flowEdges };
-  }, [graph, mode, isDark]);
+    return { nodes: flowNodes, edges: flowEdges, visibleIds };
+  }, [graph, mode, isDark, hiddenTypes, hiddenSchemas, groupBySchema]);
 
-  // Auto-foco cada vez que cambia el grafo
+  const connectivity = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const edge of graph?.edges ?? []) {
+      if (!map.has(edge.source)) map.set(edge.source, new Set());
+      if (!map.has(edge.target)) map.set(edge.target, new Set());
+      map.get(edge.source)!.add(edge.target);
+      map.get(edge.target)!.add(edge.source);
+    }
+    return map;
+  }, [graph]);
+
+  const { nodes, edges } = useMemo(() => {
+    if (!hoveredId) return base;
+    const connected = connectivity.get(hoveredId) ?? new Set<string>();
+    const nodesWithDim = base.nodes.map((node) => {
+      const dimmed = node.id !== hoveredId && !connected.has(node.id);
+      return { ...node, data: { ...node.data, dimmed } };
+    });
+    return { ...base, nodes: nodesWithDim };
+  }, [base, hoveredId, connectivity]);
+
   useEffect(() => {
-    if (nodes.length === 0) return;
+    if (base.nodes.length === 0) return;
     const timeout = setTimeout(() => {
       fitView({ padding: 0.4, maxZoom: 0.9, duration: 500 });
     }, 80);
     return () => clearTimeout(timeout);
-  }, [nodes, fitView]);
+  }, [base.nodes, fitView]);
+
+  function toggleType(type: string): void {
+    setHiddenTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
+  function toggleSchema(schemaName: string): void {
+    setHiddenSchemas((prev) => {
+      const next = new Set(prev);
+      if (next.has(schemaName)) next.delete(schemaName);
+      else next.add(schemaName);
+      return next;
+    });
+  }
 
   if (loading && !graph) {
     return (
@@ -249,14 +331,74 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
         nodesConnectable={false}
         minZoom={0.15}
         maxZoom={1.5}
+        onNodeMouseEnter={(_event, node) => setHoveredId(node.id)}
+        onNodeMouseLeave={() => setHoveredId(null)}
         attributionPosition="bottom-right"
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={16} size={1} color={isDark ? '#44403c' : '#e7e5e4'} />
         <Controls />
+        <Panel
+          position="top-left"
+          className="max-w-[220px] rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm dark:border-night-700 dark:bg-night-800/95 dark:text-night-300"
+        >
+          <p className="mb-1.5 font-semibold text-stone-700 dark:text-night-200">Filtros</p>
+          <div className="space-y-1.5">
+            {FILTERABLE_TYPES.map((type) => {
+              const off = hiddenTypes.has(type);
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => toggleType(type)}
+                  aria-pressed={!off}
+                  className={`flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 transition ${
+                    off ? 'text-stone-300 line-through dark:text-night-600' : 'hover:bg-stone-100 dark:hover:bg-night-700'
+                  }`}
+                >
+                  <span>{typeLabel[type]}</span>
+                  <span className="text-[10px] opacity-70">{off ? 'off' : 'on'}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {schemaList.length > 1 && (
+            <>
+              <p className="mb-1.5 mt-2 font-semibold text-stone-700 dark:text-night-200">Esquemas</p>
+              <div className="flex flex-wrap gap-1">
+                {schemaList.map((schemaName) => {
+                  const off = hiddenSchemas.has(schemaName);
+                  return (
+                    <button
+                      key={schemaName}
+                      type="button"
+                      onClick={() => toggleSchema(schemaName)}
+                      className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
+                        off
+                          ? 'border-stone-200 text-stone-300 dark:border-night-700 dark:text-night-600'
+                          : 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300'
+                      }`}
+                    >
+                      {schemaName}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => setGroupBySchema((v) => !v)}
+                className="mt-2 w-full rounded px-1.5 py-1 text-left text-[11px] text-stone-500 transition hover:bg-stone-100 dark:text-night-400 dark:hover:bg-night-700"
+              >
+                {groupBySchema ? '✓ ' : ''}Agrupar por esquema
+              </button>
+            </>
+          )}
+        </Panel>
+
         {mode === 'impact' && (
           <Panel
-            position="top-left"
+            position="top-right"
             className="rounded-lg border border-stone-200 bg-white/95 p-3 text-[11px] text-stone-600 shadow-sm dark:border-night-700 dark:bg-night-800/95 dark:text-night-300"
           >
             <p className="mb-1.5 font-semibold text-stone-700 dark:text-night-200">Leyenda</p>
@@ -290,6 +432,7 @@ function CustomNode({
     affected?: boolean;
     schema: string;
     isOrigin?: boolean;
+    dimmed?: boolean;
   };
 }): JSX.Element {
   const icon =
@@ -315,7 +458,11 @@ function CustomNode({
     : 'text-stone-700 dark:text-night-200';
 
   return (
-    <div className={`box-border w-[190px] rounded-lg border px-3 py-2.5 ${borderColor}`}>
+    <div
+      className={`box-border w-[190px] rounded-lg border px-3 py-2.5 transition-opacity ${
+        data.dimmed ? 'opacity-25' : 'opacity-100'
+      } ${borderColor}`}
+    >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <div className="flex items-center gap-2.5">
         <span

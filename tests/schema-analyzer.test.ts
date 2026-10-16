@@ -8,6 +8,10 @@ import {
   traceLineage,
   normalizeSchema,
   findColumnByName,
+  sanitizeSql,
+  referencedTables,
+  diffSchemas,
+  auditSchema,
 } from '../src/mcp/utils/schema-analyzer';
 import type { SchemaMetadata, ColumnInfo } from '../src/mcp/utils/postgres-inspector';
 
@@ -193,4 +197,70 @@ test('normalizeSchema fills contract defaults', () => {
 test('findColumnByName is schema-insensitive to casing', () => {
   assert.ok(findColumnByName(schema, 'Clientes', 'EMAIL'));
   assert.equal(findColumnByName(schema, 'clientes', 'nope'), undefined);
+});
+
+test('sanitizeSql removes strings, comments and dollar quotes', () => {
+  const sql = `SELECT 'pedidos' FROM clientes -- pedidos\n/* pedidos */ WHERE x = $$pedidos$$`;
+  const clean = sanitizeSql(sql);
+  assert.ok(!/'pedidos'/.test(clean));
+  assert.ok(!clean.includes('--'));
+  assert.ok(clean.includes('clientes'));
+});
+
+test('referencedTables extracts FROM/JOIN targets', () => {
+  const refs = referencedTables('SELECT * FROM public.pedidos p JOIN clientes c ON c.id = p.cliente_id');
+  assert.ok(refs.includes('pedidos'));
+  assert.ok(refs.includes('clientes'));
+  assert.ok(!refs.includes('p'));
+});
+
+test('diffSchemas detects added, removed and changed objects', () => {
+  const before: SchemaMetadata = {
+    tables: [
+      { schema: 'public', name: 'clientes', type: 'BASE TABLE', columns: [col('id'), col('email')] },
+    ],
+    views: [],
+    routines: [],
+    foreignKeys: [],
+    primaryKeys: [],
+  };
+  const after: SchemaMetadata = {
+    tables: [
+      {
+        schema: 'public',
+        name: 'clientes',
+        type: 'BASE TABLE',
+        columns: [col('id'), { ...col('email'), data_type: 'varchar' }, col('telefono')],
+      },
+      { schema: 'public', name: 'pedidos', type: 'BASE TABLE', columns: [col('id')] },
+    ],
+    views: [],
+    routines: [],
+    foreignKeys: [],
+    primaryKeys: [],
+  };
+
+  const diff = diffSchemas(before, after);
+  assert.deepEqual(diff.addedTables, ['public.pedidos']);
+  assert.deepEqual(diff.removedTables, []);
+  const clientes = diff.changedTables.find((t) => t.name === 'public.clientes');
+  assert.ok(clientes);
+  assert.deepEqual(clientes?.addedColumns, ['telefono']);
+  assert.deepEqual(clientes?.changedColumns.map((c) => c.column), ['email']);
+});
+
+test('auditSchema flags foreign keys without supporting index', () => {
+  const withIndex: SchemaMetadata = {
+    ...schema,
+    indexes: [
+      { schema: 'public', table: 'pedidos', name: 'idx_pedidos_cliente', columns: ['cliente_id'], is_unique: false, is_primary: false },
+    ],
+  };
+  const audit = auditSchema(withIndex);
+  const withoutIndex = audit.foreignKeysWithoutIndex.map((fk) => fk.constraint);
+  assert.ok(!withoutIndex.includes('fk_pedidos_clientes'));
+  assert.ok(withoutIndex.includes('fk_lineas_pedidos'));
+
+  const noIndexData = auditSchema(schema);
+  assert.deepEqual(noIndexData.foreignKeysWithoutIndex, []);
 });

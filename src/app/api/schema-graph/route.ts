@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFullSchema } from '@/mcp/utils/postgres-inspector';
+import { getFullSchema, invalidateSchemaCache } from '@/mcp/utils/postgres-inspector';
 import { schemaToGraph, normalizeSchema } from '@/mcp/utils/schema-analyzer';
 import type { SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
@@ -18,7 +18,11 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const body = (await req.json().catch(() => ({}))) as { schema?: SchemaMetadata };
+  const body = (await req.json().catch(() => ({}))) as {
+    schema?: SchemaMetadata;
+    refresh?: boolean;
+  };
+  if (body.refresh) invalidateSchemaCache();
   const override = normalizeSchema(body.schema) ?? undefined;
   return buildGraph(override);
 }

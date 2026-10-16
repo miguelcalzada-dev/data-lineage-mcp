@@ -69,7 +69,7 @@ function pickSuggestions(pool: string[], count: number): string[] {
 }
 
 export interface ChatPanelProps {
-  onResult: (graph: GraphDefinition | null, impact: DdlImpact | null) => void;
+  onResult: (graph: GraphDefinition | null, impact: DdlImpact | null, label?: string) => void;
   schema?: SchemaMetadata | null;
   onStart?: () => void;
   expanded?: boolean;
@@ -158,7 +158,7 @@ export function ChatPanel({
         { role: 'assistant', content: data.reply ?? 'No obtuve respuesta.' },
       ];
       setMessages(withReply);
-      onResult(data.graph ?? null, data.impact ?? null);
+      onResult(data.graph ?? null, data.impact ?? null, history[history.length - 1]?.content);
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : String(err));

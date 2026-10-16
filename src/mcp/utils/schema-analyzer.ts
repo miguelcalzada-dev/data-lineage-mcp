@@ -6,6 +6,9 @@ import type {
   DdlImpact,
   AffectedObject,
   IndexInfo,
+  ForeignKey,
+  ViewInfo,
+  RoutineInfo,
 } from '@/mcp/utils/postgres-inspector';
 import { SCHEMA_CONTRACT_VERSION } from './schema-contract';
 import type { GraphDefinition, GraphNode, GraphEdge } from '@/mcp/tools/generate-graph';
@@ -33,12 +36,38 @@ export function containsIdentifier(text: string, identifier: string): boolean {
   return pattern.test(text.toLowerCase());
 }
 
+const TABLE_REFERENCE_RE = /\b(?:from|join|update|into|table)\s+((?:"[^"]+"|[\w$]+)(?:\s*\.\s*(?:"[^"]+"|[\w$]+))?)/gi;
+
+export function sanitizeSql(sql: string): string {
+  return sql
+    .replace(/\$([A-Za-z0-9_]*)\$[\s\S]*?\$\1\$/g, ' ')
+    .replace(/'(?:[^']|'')*'/g, ' ')
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+}
+
+export function referencedTables(sql: string): string[] {
+  const text = sanitizeSql(sql);
+  const found = new Set<string>();
+  const re = new RegExp(TABLE_REFERENCE_RE.source, 'gi');
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    const parts = match[1]
+      .replace(/"/g, '')
+      .split('.')
+      .map((part) => part.trim().toLowerCase())
+      .filter(Boolean);
+    if (parts.length > 0) found.add(parts[parts.length - 1]);
+  }
+  return Array.from(found);
+}
+
 function definitionReferences(
   definition: string | null | undefined,
   table: string,
   column?: string
 ): boolean {
-  const text = (definition ?? '').toLowerCase();
+  const text = sanitizeSql(definition ?? '');
   if (!text) return false;
   if (!containsIdentifier(text, table)) return false;
   if (column && !containsIdentifier(text, column)) return false;
@@ -516,8 +545,9 @@ export function schemaToGraph(schema: SchemaMetadata): GraphDefinition {
   const routineEdges: GraphEdge[] = [];
   let edgeIndex = 0;
   for (const routine of schema.routines ?? []) {
+    const refs = new Set(referencedTables(routine.definition ?? ''));
     for (const table of schema.tables) {
-      if (containsIdentifier(routine.definition ?? '', table.name)) {
+      if (refs.has(table.name.toLowerCase())) {
         routineEdges.push({
           id: `routine-${edgeIndex++}`,
           source: `${routine.schema}.${routine.name}`,
@@ -726,5 +756,197 @@ export function normalizeSchema(value: unknown): SchemaMetadata | null {
     foreignKeys: s.foreignKeys ?? [],
     primaryKeys: s.primaryKeys ?? [],
     indexes: Array.isArray(s.indexes) ? s.indexes : [],
+  };
+}
+
+export interface ColumnChange {
+  column: string;
+  from: string;
+  to: string;
+}
+
+export interface TableChange {
+  name: string;
+  addedColumns: string[];
+  removedColumns: string[];
+  changedColumns: ColumnChange[];
+}
+
+export interface SchemaDiff {
+  addedTables: string[];
+  removedTables: string[];
+  changedTables: TableChange[];
+  addedForeignKeys: string[];
+  removedForeignKeys: string[];
+  addedViews: string[];
+  removedViews: string[];
+  addedRoutines: string[];
+  removedRoutines: string[];
+}
+
+function relationKey(rel: { schema: string; name: string }): string {
+  return `${rel.schema}.${rel.name}`;
+}
+
+export function diffSchemas(from: SchemaMetadata, to: SchemaMetadata): SchemaDiff {
+  const fromTables = new Map((from.tables ?? []).map((t) => [relationKey(t), t]));
+  const toTables = new Map((to.tables ?? []).map((t) => [relationKey(t), t]));
+
+  const addedTables: string[] = [];
+  const removedTables: string[] = [];
+  const changedTables: TableChange[] = [];
+
+  for (const key of toTables.keys()) {
+    if (!fromTables.has(key)) addedTables.push(key);
+  }
+  for (const key of fromTables.keys()) {
+    if (!toTables.has(key)) removedTables.push(key);
+  }
+
+  for (const [key, fromTable] of fromTables) {
+    const toTable = toTables.get(key);
+    if (!toTable) continue;
+
+    const fromCols = new Map(fromTable.columns.map((c) => [c.column_name.toLowerCase(), c]));
+    const toCols = new Map(toTable.columns.map((c) => [c.column_name.toLowerCase(), c]));
+
+    const addedColumns: string[] = [];
+    const removedColumns: string[] = [];
+    const changedColumns: ColumnChange[] = [];
+
+    for (const [name, col] of toCols) {
+      if (!fromCols.has(name)) addedColumns.push(col.column_name);
+    }
+    for (const [name, col] of fromCols) {
+      if (!toCols.has(name)) removedColumns.push(col.column_name);
+    }
+    for (const [name, fromCol] of fromCols) {
+      const toCol = toCols.get(name);
+      if (toCol && toCol.data_type !== fromCol.data_type) {
+        changedColumns.push({
+          column: fromCol.column_name,
+          from: fromCol.data_type,
+          to: toCol.data_type,
+        });
+      }
+    }
+
+    if (addedColumns.length || removedColumns.length || changedColumns.length) {
+      changedTables.push({ name: key, addedColumns, removedColumns, changedColumns });
+    }
+  }
+
+  const fkKey = (fk: ForeignKey): string =>
+    `${fk.source_schema}.${fk.source_table}.${fk.source_column}->${fk.target_schema}.${fk.target_table}.${fk.target_column}`;
+  const fromFks = new Set((from.foreignKeys ?? []).map(fkKey));
+  const toFks = new Set((to.foreignKeys ?? []).map(fkKey));
+
+  const viewKey = (v: ViewInfo): string => `${v.schema}.${v.name}`;
+  const fromViews = new Set((from.views ?? []).map(viewKey));
+  const toViews = new Set((to.views ?? []).map(viewKey));
+
+  const routineKey = (r: RoutineInfo): string => `${r.schema}.${r.name}`;
+  const fromRoutines = new Set((from.routines ?? []).map(routineKey));
+  const toRoutines = new Set((to.routines ?? []).map(routineKey));
+
+  return {
+    addedTables: addedTables.sort(),
+    removedTables: removedTables.sort(),
+    changedTables,
+    addedForeignKeys: Array.from(toFks).filter((k) => !fromFks.has(k)),
+    removedForeignKeys: Array.from(fromFks).filter((k) => !toFks.has(k)),
+    addedViews: Array.from(toViews).filter((k) => !fromViews.has(k)),
+    removedViews: Array.from(fromViews).filter((k) => !toViews.has(k)),
+    addedRoutines: Array.from(toRoutines).filter((k) => !fromRoutines.has(k)),
+    removedRoutines: Array.from(fromRoutines).filter((k) => !toRoutines.has(k)),
+  };
+}
+
+export interface SchemaAudit {
+  foreignKeysWithoutIndex: Array<{
+    table: string;
+    column: string;
+    constraint: string;
+    references: string;
+  }>;
+  unusedColumns: Array<{ table: string; column: string }>;
+  unusedViews: string[];
+  unusedRoutines: string[];
+  counts: { tables: number; views: number; routines: number; foreignKeys: number };
+}
+
+export function auditSchema(schema: SchemaMetadata): SchemaAudit {
+  const indexes = Array.isArray(schema.indexes) ? schema.indexes : [];
+  const indexesAvailable = indexes.length > 0;
+
+  const foreignKeysWithoutIndex = indexesAvailable
+    ? (schema.foreignKeys ?? [])
+        .filter(
+          (fk) =>
+            !indexes.some(
+              (idx) =>
+                idx.schema === fk.source_schema &&
+                idx.table === fk.source_table &&
+                Array.isArray(idx.columns) &&
+                idx.columns.length > 0 &&
+                idx.columns[0].toLowerCase() === fk.source_column.toLowerCase()
+            )
+        )
+        .map((fk) => ({
+          table: `${fk.source_schema}.${fk.source_table}`,
+          column: fk.source_column,
+          constraint: fk.constraint_name,
+          references: `${fk.target_schema}.${fk.target_table}.${fk.target_column}`,
+        }))
+    : [];
+
+  const definitions = [
+    ...(schema.views ?? []).map((v) => sanitizeSql(v.definition ?? '')),
+    ...(schema.routines ?? []).map((r) => sanitizeSql(r.definition ?? '')),
+  ];
+
+  const fkColumns = new Set<string>();
+  for (const fk of schema.foreignKeys ?? []) {
+    fkColumns.add(`${fk.source_table.toLowerCase()}.${fk.source_column.toLowerCase()}`);
+    fkColumns.add(`${fk.target_table.toLowerCase()}.${fk.target_column.toLowerCase()}`);
+  }
+  for (const pk of schema.primaryKeys ?? []) {
+    for (const col of pk.columns) fkColumns.add(`${pk.table.toLowerCase()}.${col.toLowerCase()}`);
+  }
+
+  const unusedColumns: Array<{ table: string; column: string }> = [];
+  for (const table of schema.tables ?? []) {
+    if (table.type !== 'BASE TABLE') continue;
+    const tableName = table.name.toLowerCase();
+    for (const col of table.columns) {
+      const column = col.column_name.toLowerCase();
+      const referenced =
+        fkColumns.has(`${tableName}.${column}`) ||
+        definitions.some((def) => containsIdentifier(def, column));
+      if (!referenced) {
+        unusedColumns.push({ table: `${table.schema}.${table.name}`, column: col.column_name });
+      }
+    }
+  }
+
+  const unusedViews = (schema.views ?? [])
+    .filter((view) => !definitions.some((def) => containsIdentifier(def, view.name)))
+    .map(relationKey);
+
+  const unusedRoutines = (schema.routines ?? [])
+    .filter((routine) => !definitions.some((def) => containsIdentifier(def, routine.name)))
+    .map(relationKey);
+
+  return {
+    foreignKeysWithoutIndex,
+    unusedColumns,
+    unusedViews,
+    unusedRoutines,
+    counts: {
+      tables: (schema.tables ?? []).length,
+      views: (schema.views ?? []).length,
+      routines: (schema.routines ?? []).length,
+      foreignKeys: (schema.foreignKeys ?? []).length,
+    },
   };
 }

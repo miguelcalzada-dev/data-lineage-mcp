@@ -1,9 +1,20 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, GitBranch, ChevronDown, MessageSquare, Database, Network, Upload } from 'lucide-react';
+import {
+  CheckCircle2,
+  GitBranch,
+  ChevronDown,
+  MessageSquare,
+  Database,
+  Network,
+  Upload,
+  FileText,
+  FileJson,
+  History,
+} from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
 import { DatabaseExplorer } from '@/components/database-explorer';
@@ -11,6 +22,8 @@ import { SchemaSelector } from '@/components/schema-selector';
 import { RiskBadge } from '@/components/risk-badge';
 import { FluidTabs } from '@/components/fluid-tabs';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { CommandPalette, type CommandAction } from '@/components/command-palette';
+import { buildMarkdownReport, downloadTextFile } from '@/lib/report';
 import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
@@ -46,6 +59,14 @@ type Tab = 'chat' | 'db';
 const springTransition = { type: 'spring' as const, stiffness: 320, damping: 34 };
 const SECTION_PANEL_ID = 'impactdb-section-panel';
 
+interface AnalysisEntry {
+  id: string;
+  label: string;
+  graph: GraphDefinition | null;
+  impact: DdlImpact | null;
+  at: number;
+}
+
 export default function HomePage(): JSX.Element {
   const [tab, setTab] = useState<Tab>('chat');
   const [hasStarted, setHasStarted] = useState<boolean>(false);
@@ -62,6 +83,8 @@ export default function HomePage(): JSX.Element {
   const [chatSuggestions, setChatSuggestions] = useState<string[]>(DATABASE_PRESETS[0].suggestions);
   const [isCustomSchema, setIsCustomSchema] = useState<boolean>(false);
   const [schemaVersion, setSchemaVersion] = useState<number>(0);
+  const [history, setHistory] = useState<AnalysisEntry[]>([]);
+  const [paletteOpen, setPaletteOpen] = useState<boolean>(false);
   const spotlight = useSpotlight();
 
   useEffect(() => {
@@ -188,6 +211,25 @@ export default function HomePage(): JSX.Element {
     [customSchema]
   );
 
+  const activeDatabaseLabel = isCustomSchema
+    ? customSchemaName || 'Base propia (JSON)'
+    : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
+
+  const pushHistory = useCallback((label: string, g: GraphDefinition | null, im: DdlImpact | null): void => {
+    setHistory((prev) =>
+      [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          label,
+          graph: g,
+          impact: im,
+          at: Date.now(),
+        },
+        ...prev,
+      ].slice(0, 15)
+    );
+  }, []);
+
   const handleTraceLineage = useCallback(
     async (table: string, column: string): Promise<void> => {
       setLoading(true);
@@ -213,6 +255,7 @@ export default function HomePage(): JSX.Element {
         const dependents = lineage.filter((l) => l.relation !== 'origin');
         const origin = lineage.find((l) => l.relation === 'origin') ?? lineage[0];
 
+        let nextImpact: DdlImpact | null = null;
         if (dependents.length > 0 && origin) {
           const affectedObjects = dependents.map((d) => ({
             type: mapKindToAffected(d.kind),
@@ -220,40 +263,92 @@ export default function HomePage(): JSX.Element {
             name: d.table,
             detail: `Depende de ${origin.table}.${origin.column}`,
           }));
-          setImpact({
+          nextImpact = {
             risk: assessRisk(affectedObjects),
             summary: '',
             affectedObjects,
             target: { schema: origin.schema, table: origin.table, column: origin.column },
-          });
-        } else {
-          setImpact(null);
+          };
         }
+        setImpact(nextImpact);
+        pushHistory(`Linaje: ${table}.${column}`, data.graph ?? null, nextImpact);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
     },
-    [customSchema]
+    [customSchema, pushHistory]
   );
 
   const handleChatResult = useCallback(
-    (newGraph: GraphDefinition | null, newImpact: DdlImpact | null): void => {
+    (newGraph: GraphDefinition | null, newImpact: DdlImpact | null, label?: string): void => {
       setGraph(newGraph);
       setImpact(newImpact);
       setGraphMode('impact');
+      if (newGraph || newImpact) pushHistory(label ?? 'Consulta', newGraph, newImpact);
     },
-    []
+    [pushHistory]
   );
 
-  const activeDatabaseLabel = isCustomSchema
-    ? customSchemaName || 'Base propia (JSON)'
-    : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
+  const handleExportReport = useCallback((): void => {
+    downloadTextFile(
+      'impactdb-informe.md',
+      buildMarkdownReport({ databaseLabel: activeDatabaseLabel, impact, graph })
+    );
+  }, [activeDatabaseLabel, impact, graph]);
+
+  const handleExportGraph = useCallback((): void => {
+    if (!graph) return;
+    downloadTextFile('impactdb-grafo.json', JSON.stringify(graph, null, 2), 'application/json');
+  }, [graph]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const commandActions: CommandAction[] = useMemo(
+    () => [
+      { id: 'tab-chat', label: 'Ir a Chat', hint: 'Sección', run: () => setTab('chat') },
+      {
+        id: 'tab-db',
+        label: 'Ir a Base de datos',
+        hint: 'Sección',
+        run: () => {
+          setTab('db');
+          void loadSchemaGraph();
+        },
+      },
+      ...DATABASE_PRESETS.map((preset) => ({
+        id: `preset-${preset.id}`,
+        label: `Base de datos: ${preset.label}`,
+        hint: 'Cambiar',
+        run: () => handleSelectPreset(preset),
+      })),
+      { id: 'export-report', label: 'Exportar informe (.md)', hint: 'Exportar', run: handleExportReport },
+      { id: 'export-graph', label: 'Exportar grafo (.json)', hint: 'Exportar', run: handleExportGraph },
+    ],
+    [handleSelectPreset, handleExportReport, handleExportGraph, loadSchemaGraph]
+  );
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-transparent text-ink dark:text-night-100">
       <Header align={hasStarted ? 'right' : 'left'} />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        actions={commandActions}
+        schema={customSchema}
+        onTraceLineage={handleTraceLineage}
+      />
 
       <div
         className={
@@ -409,6 +504,62 @@ export default function HomePage(): JSX.Element {
               transition={{ duration: 0.35, ease: 'easeOut' }}
               className="relative flex min-w-0 flex-1 flex-col"
             >
+              <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-1.5 dark:border-night-700">
+                <details className="group relative">
+                  <summary
+                    className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 dark:text-night-400 dark:hover:bg-night-700 dark:hover:text-night-100"
+                    aria-disabled={history.length === 0}
+                  >
+                    <History className="h-3.5 w-3.5" />
+                    Historial {history.length > 0 ? `(${history.length})` : ''}
+                  </summary>
+                  <div className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border border-stone-200 bg-white p-1 shadow-lg dark:border-night-700 dark:bg-night-800">
+                    {history.length === 0 ? (
+                      <p className="px-2 py-3 text-xs text-stone-400">Todavía no hay análisis.</p>
+                    ) : (
+                      history.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => {
+                            setGraph(entry.graph);
+                            setImpact(entry.impact);
+                            setGraphMode('impact');
+                          }}
+                          className="block w-full truncate rounded-md px-2 py-1.5 text-left text-xs text-stone-600 transition hover:bg-stone-100 dark:text-night-300 dark:hover:bg-night-700"
+                          title={entry.label}
+                        >
+                          {entry.label}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </details>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleExportReport}
+                    disabled={!impact && !graph}
+                    title="Descargar informe (.md)"
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 disabled:opacity-40 dark:text-night-400 dark:hover:bg-night-700 dark:hover:text-night-100"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Informe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportGraph}
+                    disabled={!graph}
+                    title="Descargar grafo (.json)"
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-700 disabled:opacity-40 dark:text-night-400 dark:hover:bg-night-700 dark:hover:text-night-100"
+                  >
+                    <FileJson className="h-3.5 w-3.5" />
+                    Grafo
+                  </button>
+                </div>
+              </div>
+
               <div className="relative flex-1">
                 {error && (
                   <div className="absolute left-4 right-4 top-4 z-20 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
