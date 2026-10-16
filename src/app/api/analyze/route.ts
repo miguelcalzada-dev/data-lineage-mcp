@@ -3,10 +3,10 @@ import { predictBreakingChanges, traceColumnLineage, getFullSchema } from '@/mcp
 import { generateGraphTool, type GraphDefinition } from '@/mcp/tools/generate-graph';
 import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
 import { rateLimit, clientKey } from '@/lib/rate-limit';
+import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 function parseGraphDefinition(text: string): GraphDefinition | undefined {
   try {

@@ -22,6 +22,8 @@ export function SchemaSelector({ onSelect, schema: externalSchema = null }: Sche
     if (externalSchema) {
       setSchema(externalSchema);
       setLoading(false);
+      setSelectedTableId('');
+      setSelectedColumn('');
       return;
     }
 
