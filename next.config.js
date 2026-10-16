@@ -12,7 +12,7 @@ const nextConfig = {
     serverComponentsExternalPackages: ['pg'],
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
     ignoreDuringBuilds: true,

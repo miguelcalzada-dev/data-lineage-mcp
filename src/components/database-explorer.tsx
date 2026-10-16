@@ -34,6 +34,23 @@ export function DatabaseExplorer({
   const [search, setSearch] = useState<string>('');
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showInfo) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setShowInfo(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [showInfo]);
 
   useEffect(() => {
     if (schema) return;
@@ -101,7 +118,12 @@ export function DatabaseExplorer({
   }
 
   const term = search.trim().toLowerCase();
-  const tables = (effective?.tables ?? []).filter((t) => !term || t.name.toLowerCase().includes(term));
+  const tables = (effective?.tables ?? []).filter(
+    (t) =>
+      !term ||
+      t.name.toLowerCase().includes(term) ||
+      t.columns.some((c) => c.column_name.toLowerCase().includes(term))
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -111,7 +133,7 @@ export function DatabaseExplorer({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar tabla o vista…"
+            placeholder="Buscar tabla, vista o columna…"
             className="w-full bg-transparent text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none dark:text-night-100 dark:placeholder:text-night-500"
           />
         </div>
@@ -119,6 +141,7 @@ export function DatabaseExplorer({
         {presets.length > 0 && (
           <FluidTabs
             active={activePresetId}
+            layoutId="db-preset-tabs"
             onChange={(id) => {
               const preset = presets.find((p) => p.id === id);
               if (preset && onSelectPreset) onSelectPreset(preset);
@@ -197,11 +220,16 @@ export function DatabaseExplorer({
           onClick={() => setShowInfo(false)}
         >
           <div
-            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl dark:border-night-700 dark:bg-night-900"
+            ref={dialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="db-help-title"
+            className="no-scrollbar max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl focus:outline-none dark:border-night-700 dark:bg-night-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
-              <h3 className="text-base font-semibold text-stone-900 dark:text-night-100">
+              <h3 id="db-help-title" className="text-base font-semibold text-stone-900 dark:text-night-100">
                 ¿Cómo consigo el JSON de mi base de datos?
               </h3>
               <button

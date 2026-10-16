@@ -174,6 +174,10 @@ function computeRisk(
   return 'MEDIUM';
 }
 
+export function assessRisk(affected: AffectedObject[]): 'HIGH' | 'MEDIUM' | 'LOW' {
+  return computeRisk(affected, {});
+}
+
 function collectTableDependents(
   schema: SchemaMetadata,
   targetTable: TableInfo,
@@ -479,7 +483,7 @@ function collectColumnDependents(
 }
 
 export function schemaToGraph(schema: SchemaMetadata): GraphDefinition {
-  const nodes: GraphNode[] = schema.tables.map((table) => ({
+  const tableNodes: GraphNode[] = schema.tables.map((table) => ({
     id: `${table.schema}.${table.name}`,
     type: table.type === 'BASE TABLE' ? 'table' : 'view',
     label: table.name,
@@ -489,16 +493,44 @@ export function schemaToGraph(schema: SchemaMetadata): GraphDefinition {
     affected: false,
   }));
 
+  const routineNodes: GraphNode[] = (schema.routines ?? []).map((routine) => ({
+    id: `${routine.schema}.${routine.name}`,
+    type: 'routine',
+    label: routine.name,
+    schema: routine.schema,
+    table: routine.name,
+    column: '*',
+    affected: false,
+  }));
+
+  const nodes: GraphNode[] = [...tableNodes, ...routineNodes];
   const nodeIds = new Set(nodes.map((n) => n.id));
 
-  const edges: GraphEdge[] = schema.foreignKeys
-    .map((fk, index) => ({
-      id: `fk-${index}-${fk.constraint_name}`,
-      source: `${fk.source_schema}.${fk.source_table}`,
-      target: `${fk.target_schema}.${fk.target_table}`,
-      label: fk.source_column,
-    }))
-    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+  const fkEdges: GraphEdge[] = schema.foreignKeys.map((fk, index) => ({
+    id: `fk-${index}-${fk.constraint_name}`,
+    source: `${fk.source_schema}.${fk.source_table}`,
+    target: `${fk.target_schema}.${fk.target_table}`,
+    label: fk.source_column,
+  }));
+
+  const routineEdges: GraphEdge[] = [];
+  let edgeIndex = 0;
+  for (const routine of schema.routines ?? []) {
+    for (const table of schema.tables) {
+      if (containsIdentifier(routine.definition ?? '', table.name)) {
+        routineEdges.push({
+          id: `routine-${edgeIndex++}`,
+          source: `${routine.schema}.${routine.name}`,
+          target: `${table.schema}.${table.name}`,
+          label: 'usa',
+        });
+      }
+    }
+  }
+
+  const edges: GraphEdge[] = [...fkEdges, ...routineEdges].filter(
+    (edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)
+  );
 
   return { nodes, edges };
 }

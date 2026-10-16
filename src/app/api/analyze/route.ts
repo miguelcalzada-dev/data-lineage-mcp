@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { predictBreakingChanges, traceColumnLineage, getFullSchema } from '@/mcp/utils/postgres-inspector';
 import { generateGraphTool, type GraphDefinition } from '@/mcp/tools/generate-graph';
 import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
+import { rateLimit, clientKey } from '@/lib/rate-limit';
+
+const RATE_LIMIT_MAX = 60;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
 function parseGraphDefinition(text: string): GraphDefinition | undefined {
@@ -40,6 +44,14 @@ export interface AnalyzeResponse {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const steps: AnalyzeStep[] = [];
+
+  const limit = rateLimit(`analyze:${clientKey(req)}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Demasiadas peticiones. Espera unos segundos.', steps },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    );
+  }
 
   try {
     const body = (await req.json()) as AnalyzeRequest;

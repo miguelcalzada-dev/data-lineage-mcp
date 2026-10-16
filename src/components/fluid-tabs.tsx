@@ -9,6 +9,7 @@ export interface FluidTab {
   id: string;
   label: string;
   icon?: ReactNode;
+  panelId?: string;
 }
 
 export interface FluidTabsProps {
@@ -69,6 +70,7 @@ export function FluidTabs({
             role="tab"
             id={`fluid-tab-${layoutId}-${tab.id}`}
             aria-selected={isActive}
+            aria-controls={tab.panelId}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}

@@ -7,16 +7,22 @@ import type { McpTool, ToolContext } from '@/mcp/tools/types';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
+import { rateLimit, clientKey } from '@/lib/rate-limit';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_TOOL_CHARS = 4000;
 const MAX_ITERATIONS = 4;
+const GROQ_TIMEOUT_MS = 15000;
+const MAX_MESSAGES = 40;
+const MAX_MESSAGE_CHARS = 4000;
+const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 const MODELS: string[] = Array.from(
   new Set([
     process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b',
     'openai/gpt-oss-20b',
-    'qwen/qwen3.8-27b',
+    'llama-3.3-70b-versatile',
   ])
 );
 
@@ -80,6 +86,7 @@ async function callGroq(model: string, apiKey: string, messages: GroqMessage[]):
       tools: toOpenAiTools(tools),
       tool_choice: 'auto',
     }),
+    signal: AbortSignal.timeout(GROQ_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -170,7 +177,34 @@ async function executeToolCall(call: GroqToolCall, context: ToolContext): Promis
   return execution;
 }
 
+function describeGroqError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const name = error instanceof Error ? error.name : '';
+
+  if (name === 'TimeoutError' || name === 'AbortError' || /abort|timeout|timed out/i.test(message)) {
+    return 'El modelo tardó demasiado en responder. Inténtalo de nuevo.';
+  }
+  if (/\b429\b/.test(message)) {
+    return 'El asistente está recibiendo demasiadas peticiones. Espera unos segundos y vuelve a intentarlo.';
+  }
+  if (/\b401\b|\b403\b/.test(message)) {
+    return 'La clave de Groq no es válida o ha caducado. Revisa GROQ_API_KEY.';
+  }
+  if (/\b404\b|model/i.test(message)) {
+    return 'El modelo configurado no está disponible. Revisa GROQ_MODEL.';
+  }
+  return 'No pude completar la consulta en este momento. Inténtalo de nuevo por favor.';
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const limit = rateLimit(`chat:${clientKey(req)}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { reply: 'Vas demasiado rápido. Espera unos segundos e inténtalo de nuevo.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    );
+  }
+
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -180,6 +214,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body = (await req.json()) as ChatRequestBody;
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       return NextResponse.json({ reply: 'No he recibido ninguna pregunta.' });
+    }
+    if (body.messages.length > MAX_MESSAGES) {
+      return NextResponse.json({ reply: 'La conversación es demasiado larga. Inicia una nueva.' });
+    }
+    const invalidMessage = body.messages.some(
+      (m) => typeof m?.content !== 'string' || m.content.length > MAX_MESSAGE_CHARS
+    );
+    if (invalidMessage) {
+      return NextResponse.json({ reply: 'Algún mensaje es demasiado largo o no es válido.' });
     }
 
     const override = normalizeSchema(body.schema) ?? undefined;
@@ -236,10 +279,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json({ reply, graph, impact });
-  } catch {
-    return NextResponse.json({
-      reply: 'No pude completar la consulta en este momento. Inténtalo de nuevo por favor.',
-    });
+  } catch (error) {
+    return NextResponse.json({ reply: describeGroqError(error) });
   }
 }
 
@@ -252,6 +293,7 @@ function summarizeSchema(content: string): string {
         columns: (t.columns ?? []).map((c) => c.column_name),
       })),
       views: (parsed.views ?? []).map((v) => v.name),
+      routines: (parsed.routines ?? []).map((r) => ({ name: r.name, type: r.type })),
     });
   } catch {
     return content;

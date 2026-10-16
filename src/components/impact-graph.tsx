@@ -13,7 +13,73 @@ import ReactFlow, {
   Position,
 } from 'reactflow';
 import { Table2, Eye, FileCode, Link2 } from 'lucide-react';
-import type { GraphDefinition } from '@/mcp/tools/generate-graph';
+import type { GraphDefinition, GraphNode, GraphEdge } from '@/mcp/tools/generate-graph';
+
+function layoutLayers(nodes: GraphNode[], edges: GraphEdge[]): Map<string, { x: number; y: number }> {
+  const layer = new Map<string, number>();
+  const indeg = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+
+  for (const node of nodes) {
+    adj.set(node.id, []);
+    indeg.set(node.id, 0);
+  }
+  for (const edge of edges) {
+    if (!adj.has(edge.source) || !adj.has(edge.target)) continue;
+    adj.get(edge.source)!.push(edge.target);
+    indeg.set(edge.target, (indeg.get(edge.target) ?? 0) + 1);
+  }
+
+  const remaining = new Map(indeg);
+  const queue: string[] = [];
+  for (const node of nodes) {
+    if ((indeg.get(node.id) ?? 0) === 0) {
+      layer.set(node.id, 0);
+      queue.push(node.id);
+    }
+  }
+  if (queue.length === 0 && nodes.length > 0) {
+    layer.set(nodes[0].id, 0);
+    queue.push(nodes[0].id);
+  }
+
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
+    const depth = layer.get(current) ?? 0;
+    for (const next of adj.get(current) ?? []) {
+      layer.set(next, Math.max(layer.get(next) ?? 0, depth + 1));
+      const pending = (remaining.get(next) ?? 1) - 1;
+      remaining.set(next, pending);
+      if (pending <= 0) queue.push(next);
+    }
+  }
+  for (const node of nodes) {
+    if (!layer.has(node.id)) layer.set(node.id, 0);
+  }
+
+  const byLayer = new Map<number, string[]>();
+  for (const node of nodes) {
+    const l = layer.get(node.id) ?? 0;
+    if (!byLayer.has(l)) byLayer.set(l, []);
+    byLayer.get(l)!.push(node.id);
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+  const horizontalGap = 300;
+  const verticalGap = 110;
+  for (const [l, group] of byLayer) {
+    const count = group.length;
+    group.forEach((id, index) => {
+      positions.set(id, {
+        x: l * horizontalGap,
+        y: Math.round((index - (count - 1) / 2) * verticalGap),
+      });
+    });
+  }
+
+  return positions;
+}
 
 export type GraphMode = 'impact' | 'schema';
 
@@ -112,36 +178,20 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
 
     const targetIds = new Set(gEdges.map((e) => e.target));
     const originId = gNodes.find((n) => !targetIds.has(n.id))?.id ?? gNodes[0]?.id;
+    const positions = layoutLayers(gNodes, gEdges);
 
-    const dependents = gNodes.filter((n) => n.id !== originId);
-    const horizontalGap = 380;
-    const verticalSpacing = 96;
-
-    const flowNodes: Node[] = gNodes.map((node) => {
-      let position: { x: number; y: number };
-
-      if (node.id === originId) {
-        position = { x: 0, y: 0 };
-      } else {
-        const index = dependents.findIndex((d) => d.id === node.id);
-        const count = Math.max(dependents.length, 1);
-        const y = (index - (count - 1) / 2) * verticalSpacing;
-        position = { x: horizontalGap, y: Math.round(y) };
-      }
-
-      return {
-        id: node.id,
-        type: 'custom',
-        position,
-        data: {
-          label: node.label,
-          type: node.type,
-          affected: node.affected,
-          schema: node.schema,
-          isOrigin: node.id === originId,
-        },
-      };
-    });
+    const flowNodes: Node[] = gNodes.map((node) => ({
+      id: node.id,
+      type: 'custom',
+      position: positions.get(node.id) ?? { x: 0, y: 0 },
+      data: {
+        label: node.label,
+        type: node.type,
+        affected: node.affected,
+        schema: node.schema,
+        isOrigin: node.id === originId,
+      },
+    }));
 
     const flowEdges: Edge[] = gEdges.map((edge) => ({
       id: edge.id,

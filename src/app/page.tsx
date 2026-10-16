@@ -15,7 +15,7 @@ import type { AnalyzeResponse } from '@/app/api/analyze/route';
 import type { GraphDefinition } from '@/mcp/tools/generate-graph';
 import type { DdlImpact, LineageNode, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 import type { GraphMode } from '@/components/impact-graph';
-import { normalizeSchema, schemaToGraph } from '@/mcp/utils/schema-analyzer';
+import { normalizeSchema, schemaToGraph, assessRisk } from '@/mcp/utils/schema-analyzer';
 import { useSpotlight } from '@/lib/use-spotlight';
 import { apiPath } from '@/lib/api';
 import { GradientText } from '@/components/gradient-text';
@@ -44,6 +44,7 @@ const objectTypeLabel: Record<string, string> = {
 type Tab = 'chat' | 'db';
 
 const springTransition = { type: 'spring' as const, stiffness: 320, damping: 34 };
+const SECTION_PANEL_ID = 'impactdb-section-panel';
 
 export default function HomePage(): JSX.Element {
   const [tab, setTab] = useState<Tab>('chat');
@@ -213,15 +214,16 @@ export default function HomePage(): JSX.Element {
         const origin = lineage.find((l) => l.relation === 'origin') ?? lineage[0];
 
         if (dependents.length > 0 && origin) {
+          const affectedObjects = dependents.map((d) => ({
+            type: mapKindToAffected(d.kind),
+            schema: d.schema,
+            name: d.table,
+            detail: `Depende de ${origin.table}.${origin.column}`,
+          }));
           setImpact({
-            risk: dependents.length > 3 ? 'HIGH' : 'MEDIUM',
+            risk: assessRisk(affectedObjects),
             summary: '',
-            affectedObjects: dependents.map((d) => ({
-              type: mapKindToAffected(d.kind),
-              schema: d.schema,
-              name: d.table,
-              detail: `Depende de ${origin.table}.${origin.column}`,
-            })),
+            affectedObjects,
             target: { schema: origin.schema, table: origin.table, column: origin.column },
           });
         } else {
@@ -308,16 +310,22 @@ export default function HomePage(): JSX.Element {
                     setTab(next);
                     if (next === 'db') void loadSchemaGraph();
                   }}
+                  layoutId="section-tabs"
                   ariaLabel="Secciones"
                   tabs={[
-                    { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-4 w-4" /> },
-                    { id: 'db', label: 'Base de datos', icon: <Database className="h-4 w-4" /> },
+                    { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-4 w-4" />, panelId: SECTION_PANEL_ID },
+                    { id: 'db', label: 'Base de datos', icon: <Database className="h-4 w-4" />, panelId: SECTION_PANEL_ID },
                   ]}
                 />
               </div>
             )}
 
-            <div className={hasStarted ? 'min-h-0 flex-1' : ''}>
+            <div
+              id={hasStarted ? SECTION_PANEL_ID : undefined}
+              role={hasStarted ? 'tabpanel' : undefined}
+              aria-labelledby={hasStarted ? `fluid-tab-section-tabs-${tab}` : undefined}
+              className={hasStarted ? 'min-h-0 flex-1' : ''}
+            >
               {hasStarted && tab === 'db' ? (
                 <DatabaseExplorer
                   schema={customSchema}
@@ -366,6 +374,7 @@ export default function HomePage(): JSX.Element {
                     const preset = DATABASE_PRESETS.find((p) => p.id === id);
                     if (preset) handleSelectPreset(preset);
                   }}
+                  layoutId="preset-tabs"
                   ariaLabel="Bases de datos de ejemplo"
                   tabs={DATABASE_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
                 />
