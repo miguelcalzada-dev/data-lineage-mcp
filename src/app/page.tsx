@@ -13,6 +13,7 @@ import {
   Upload,
   FileText,
   FileJson,
+  AlertTriangle,
 } from 'lucide-react';
 import { Header } from '@/components/header';
 import { ChatPanel } from '@/components/chat-panel';
@@ -608,6 +609,27 @@ function ImpactSummary({ impact }: { impact: DdlImpact }): JSX.Element {
         <span className="text-sm font-semibold text-stone-800 dark:text-night-100">Resultado</span>
         <RiskBadge level={impact.risk} />
       </div>
+
+      {impact.simulation?.attempted && (
+        <p
+          className={`mt-2 flex items-start gap-1.5 text-xs ${
+            impact.simulation.ok
+              ? 'text-emerald-700 dark:text-emerald-400'
+              : 'text-amber-700 dark:text-amber-400'
+          }`}
+        >
+          {impact.simulation.ok ? (
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          )}
+          <span>
+            {impact.simulation.ok
+              ? 'Verificado en la base de datos: se aplica sin errores (revertido).'
+              : `Verificado en la base de datos: ${impact.simulation.message}`}
+          </span>
+        </p>
+      )}
 
       {count === 0 ? (
         <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">

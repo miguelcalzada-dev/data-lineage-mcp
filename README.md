@@ -67,6 +67,8 @@ Copia `.env.example` a `.env.local` (o configura las variables en Railway):
 | `SCHEMA_CACHE_TTL_MS` | TTL de la caché del esquema en ms (por defecto `30000`) |
 | `PG_STATEMENT_TIMEOUT_MS` | Timeout de sentencias PostgreSQL en ms (por defecto `10000`) |
 | `PG_POOL_MAX` | Máximo de conexiones del pool (por defecto `5`) |
+| `SANDBOX_DATABASE_URL` | Conexión usada para la simulación real de DDL (si no se define, usa `DATABASE_URL`) |
+| `DISABLE_DDL_SIMULATION` | `true` para desactivar la simulación real con `ROLLBACK` |
 
 ---
 

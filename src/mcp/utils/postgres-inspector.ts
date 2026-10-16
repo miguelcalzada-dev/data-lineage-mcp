@@ -130,6 +130,12 @@ export interface DdlImpact {
     table: string;
     column: string;
   };
+  simulation?: {
+    attempted: boolean;
+    ok: boolean;
+    message: string;
+    schemaUsed?: string;
+  };
 }
 
 export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {

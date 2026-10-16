@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { predictBreakingChanges, traceColumnLineage, getFullSchema } from '@/mcp/utils/postgres-inspector';
 import { generateGraphTool, type GraphDefinition } from '@/mcp/tools/generate-graph';
 import { normalizeSchema } from '@/mcp/utils/schema-analyzer';
+import { simulateDdl } from '@/mcp/utils/ddl-simulator';
 import { rateLimit, clientKey } from '@/lib/rate-limit';
 import type { LineageNode, DdlImpact, SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 
@@ -65,6 +66,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (ddlStatement) {
       impact = await predictBreakingChanges(ddlStatement, override);
+      if (!impact.notFound) {
+        impact.simulation = await simulateDdl(ddlStatement);
+      }
       steps.push({ tool: 'predict_breaking_changes', input: { ddlStatement }, output: impact });
     }
 

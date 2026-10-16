@@ -1,5 +1,6 @@
 import { getFullSchema } from '@/mcp/utils/postgres-inspector';
 import { predictImpact } from '@/mcp/utils/schema-analyzer';
+import { simulateDdl } from '@/mcp/utils/ddl-simulator';
 import type { McpTool } from './types';
 
 export const predictImpactTool: McpTool = {
@@ -27,6 +28,9 @@ export const predictImpactTool: McpTool = {
         context?.targetSchema ?? (args.schema ? String(args.schema) : undefined);
       const schema = context?.schema ?? (await getFullSchema(targetSchema));
       const impact = predictImpact(schema, ddlStatement);
+      if (!impact.notFound) {
+        impact.simulation = await simulateDdl(ddlStatement);
+      }
       return {
         content: [
           {
