@@ -27,6 +27,7 @@ export interface AnalyzeRequest {
   columnName?: string;
   includeSchema?: boolean;
   schema?: SchemaMetadata;
+  preferredSchema?: string;
 }
 
 export interface AnalyzeStep {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const body = (await req.json()) as AnalyzeRequest;
-    const { ddlStatement, tableName, columnName, includeSchema, schema } = body;
+    const { ddlStatement, tableName, columnName, includeSchema, schema, preferredSchema } = body;
     const override = normalizeSchema(schema) ?? undefined;
 
     let impact: DdlImpact | undefined;
@@ -67,7 +68,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (ddlStatement) {
       impact = await predictBreakingChanges(ddlStatement, override);
       if (!impact.notFound) {
-        impact.simulation = await simulateDdl(ddlStatement);
+        impact.simulation = await simulateDdl(
+          ddlStatement,
+          typeof preferredSchema === 'string' ? preferredSchema : undefined
+        );
       }
       steps.push({ tool: 'predict_breaking_changes', input: { ddlStatement }, output: impact });
     }

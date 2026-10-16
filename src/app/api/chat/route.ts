@@ -58,6 +58,7 @@ function toOpenAiTools(list: McpTool[]): Array<Record<string, unknown>> {
 interface ChatRequestBody {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   schema?: SchemaMetadata;
+  preferredSchema?: string;
 }
 
 interface GroqToolCall {
@@ -226,7 +227,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const override = normalizeSchema(body.schema) ?? undefined;
-    const context: ToolContext = { schema: override };
+    const preferredSchema =
+      typeof body.preferredSchema === 'string' ? body.preferredSchema : undefined;
+    const context: ToolContext = { schema: override, preferredSchema };
 
     const messages: GroqMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },

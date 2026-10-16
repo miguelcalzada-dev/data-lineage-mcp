@@ -76,6 +76,7 @@ export interface ChatPanelProps {
   hideTitle?: boolean;
   suggestions?: string[];
   databaseLabel?: string;
+  preferredSchema?: string;
 }
 
 export function ChatPanel({
@@ -86,6 +87,7 @@ export function ChatPanel({
   hideTitle = false,
   suggestions: suggestionSource,
   databaseLabel,
+  preferredSchema,
 }: ChatPanelProps): JSX.Element {
   const pool = suggestionSource && suggestionSource.length > 0 ? suggestionSource : SUGGESTION_POOL;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -137,7 +139,7 @@ export function ChatPanel({
       const res = await fetch(apiPath('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, schema }),
+        body: JSON.stringify({ messages: history, schema, preferredSchema }),
         signal: controller.signal,
       });
       const data = (await res.json()) as {

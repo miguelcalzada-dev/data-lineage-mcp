@@ -3,6 +3,7 @@ import type { SchemaMetadata } from '@/mcp/utils/postgres-inspector';
 export interface ToolContext {
   schema?: SchemaMetadata;
   targetSchema?: string;
+  preferredSchema?: string;
 }
 
 export interface McpTool {

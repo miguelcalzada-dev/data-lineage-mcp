@@ -63,7 +63,14 @@ function checkStatement(ddl: string): { ok: boolean; message: string } {
   return { ok: true, message: '' };
 }
 
-async function resolveSchema(db: PoolClient, tableName: string): Promise<string | undefined> {
+async function resolveSchema(
+  db: PoolClient,
+  tableName: string,
+  preferredSchema?: string
+): Promise<string | undefined> {
+  const schemas = preferredSchema
+    ? [preferredSchema, ...PREFERRED_SCHEMAS.filter((s) => s !== preferredSchema)]
+    : PREFERRED_SCHEMAS;
   try {
     const result = await db.query<{ table_schema: string }>(
       `SELECT table_schema
@@ -72,7 +79,7 @@ async function resolveSchema(db: PoolClient, tableName: string): Promise<string 
           AND table_schema = ANY($2::text[])
         ORDER BY array_position($2::text[], table_schema)
         LIMIT 1`,
-      [tableName, PREFERRED_SCHEMAS]
+      [tableName, schemas]
     );
     return result.rows[0]?.table_schema;
   } catch {
@@ -80,7 +87,7 @@ async function resolveSchema(db: PoolClient, tableName: string): Promise<string 
   }
 }
 
-export async function simulateDdl(ddl: string): Promise<DdlSimulation> {
+export async function simulateDdl(ddl: string, preferredSchema?: string): Promise<DdlSimulation> {
   if (!isSimulationEnabled()) {
     return { attempted: false, ok: false, message: 'La simulación está desactivada.' };
   }
@@ -116,7 +123,9 @@ export async function simulateDdl(ddl: string): Promise<DdlSimulation> {
     await db.query("SET LOCAL lock_timeout = '3s'");
 
     const parsed = parseDdlTarget(ddl);
-    const schemaUsed = parsed?.tableName ? await resolveSchema(db, parsed.tableName) : undefined;
+    const schemaUsed = parsed?.tableName
+      ? await resolveSchema(db, parsed.tableName, preferredSchema)
+      : undefined;
     if (schemaUsed) {
       await db.query('SELECT set_config($1, $2, true)', ['search_path', `${schemaUsed}, public`]);
     }

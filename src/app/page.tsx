@@ -60,9 +60,16 @@ type Tab = 'chat' | 'db';
 const springTransition = { type: 'spring' as const, stiffness: 320, damping: 34 };
 const SECTION_PANEL_ID = 'impactdb-section-panel';
 
+const PRESET_SCHEMA: Record<string, string> = {
+  empresa: 'empresa',
+  'tienda-online': 'tienda',
+  concesionario: 'concesionario',
+};
+
 interface AnalysisEntry {
   id: string;
   label: string;
+  db: string;
   graph: GraphDefinition | null;
   impact: DdlImpact | null;
   at: number;
@@ -107,6 +114,7 @@ export default function HomePage(): JSX.Element {
   }, []);
 
   const handleLoadSchema = useCallback((loaded: SchemaMetadata, name?: string): void => {
+    setError(null);
     setCustomSchema(loaded);
     setIsCustomSchema(true);
     setActivePresetId('custom');
@@ -127,6 +135,7 @@ export default function HomePage(): JSX.Element {
 
   const handleSelectPreset = useCallback(
     (preset: DatabasePreset): void => {
+      setError(null);
       setActivePresetId(preset.id);
       setChatSuggestions(preset.suggestions);
       setIsCustomSchema(false);
@@ -215,21 +224,27 @@ export default function HomePage(): JSX.Element {
   const activeDatabaseLabel = isCustomSchema
     ? customSchemaName || 'Base propia (JSON)'
     : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
+  const activeDbKey = isCustomSchema ? 'custom' : activePresetId;
+  const preferredSchema = isCustomSchema ? undefined : PRESET_SCHEMA[activePresetId];
 
-  const pushHistory = useCallback((label: string, g: GraphDefinition | null, im: DdlImpact | null): void => {
-    setHistory((prev) =>
-      [
-        {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          label,
-          graph: g,
-          impact: im,
-          at: Date.now(),
-        },
-        ...prev,
-      ].slice(0, 15)
-    );
-  }, []);
+  const pushHistory = useCallback(
+    (label: string, g: GraphDefinition | null, im: DdlImpact | null): void => {
+      setHistory((prev) =>
+        [
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            label,
+            db: activeDbKey,
+            graph: g,
+            impact: im,
+            at: Date.now(),
+          },
+          ...prev,
+        ].slice(0, 15)
+      );
+    },
+    [activeDbKey]
+  );
 
   const handleTraceLineage = useCallback(
     async (table: string, column: string): Promise<void> => {
@@ -240,7 +255,12 @@ export default function HomePage(): JSX.Element {
         const response = await fetch(apiPath('/api/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tableName: table, columnName: column, schema: customSchema ?? undefined }),
+          body: JSON.stringify({
+            tableName: table,
+            columnName: column,
+            schema: customSchema ?? undefined,
+            preferredSchema,
+          }),
         });
 
         const data = (await response.json()) as AnalyzeResponse & { error?: string };
@@ -279,7 +299,7 @@ export default function HomePage(): JSX.Element {
         setLoading(false);
       }
     },
-    [customSchema, pushHistory]
+    [customSchema, preferredSchema, pushHistory]
   );
 
   const handleChatResult = useCallback(
@@ -454,6 +474,7 @@ export default function HomePage(): JSX.Element {
                     hideTitle={!hasStarted}
                     suggestions={chatSuggestions}
                     databaseLabel={activeDatabaseLabel}
+                    preferredSchema={preferredSchema}
                   />
                 </ErrorBoundary>
               )}
@@ -517,7 +538,10 @@ export default function HomePage(): JSX.Element {
               className="relative flex min-w-0 flex-1 flex-col"
             >
               <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-1.5 dark:border-night-700">
-                <HistoryMenu entries={history} onSelect={handleHistorySelect} />
+                <HistoryMenu
+                  entries={history.filter((item) => item.db === activeDbKey)}
+                  onSelect={handleHistorySelect}
+                />
 
                 <div className="flex items-center gap-1">
                   <button

@@ -29,7 +29,7 @@ export const predictImpactTool: McpTool = {
       const schema = context?.schema ?? (await getFullSchema(targetSchema));
       const impact = predictImpact(schema, ddlStatement);
       if (!impact.notFound) {
-        impact.simulation = await simulateDdl(ddlStatement);
+        impact.simulation = await simulateDdl(ddlStatement, context?.preferredSchema);
       }
       return {
         content: [
