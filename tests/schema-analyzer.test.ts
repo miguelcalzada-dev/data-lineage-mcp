@@ -261,6 +261,6 @@ test('auditSchema flags foreign keys without supporting index', () => {
   assert.ok(!withoutIndex.includes('fk_pedidos_clientes'));
   assert.ok(withoutIndex.includes('fk_lineas_pedidos'));
 
-  const noIndexData = auditSchema(schema);
+  const noIndexData = auditSchema({ ...schema, indexes: [] });
   assert.deepEqual(noIndexData.foreignKeysWithoutIndex, []);
 });
