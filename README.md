@@ -110,6 +110,37 @@ El endpoint `GET /api/health` devuelve el estado real de la base de datos (`db`)
 
 ---
 
+## Servidor MCP (opcional)
+
+La web **no** necesita el servidor MCP: ejecuta las herramientas internamente. El servidor MCP (`npm run mcp:server`) solo sirve para conectar **agentes externos** (opencode, Claude Desktop, Cursor…).
+
+### Desplegarlo en Railway como servicio aparte
+1. Railway → **New → Deploy from GitHub repo** (el mismo repo, un servicio nuevo).
+2. En **ese** servicio: **Settings → Config file path** = `railway.mcp.json` (usa `start` = `npm run mcp:server` y healthcheck `/health`; no reutilices `railway.json`, que es de la web).
+3. Variables del servicio MCP: `DATABASE_URL`, `MCP_SERVER_SECRET_TOKEN` (sin ella el server no arranca) y `PORT` (Railway lo inyecta).
+4. En el servicio **web**: añade `MCP_SERVER_URL` apuntando al MCP, con el mismo `MCP_SERVER_SECRET_TOKEN`:
+   - Privado (recomendado): `http://<servicio>.railway.internal:<puerto>`
+   - Público: `https://<dominio-generado>`
+5. Redeploy del web. El indicador "MCP" del pie se pone verde cuando `/api/health` obtiene `200` de `${MCP_SERVER_URL}/health`.
+
+### Conectar un cliente MCP
+El servidor habla **SSE** (`/sse` + `/message`) y exige `Authorization: Bearer <token>`. Ejemplo para **opencode** (en `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "impactdb": {
+      "type": "remote",
+      "url": "https://<dominio-mcp>/sse",
+      "headers": { "Authorization": "Bearer <MCP_SERVER_SECRET_TOKEN>" }
+    }
+  }
+}
+```
+
+Reinicia el cliente tras guardar. Si tu cliente exige *Streamable HTTP* en lugar de SSE, hay que migrar el transporte del servidor (cambio pequeño).
+
 ## Herramientas MCP
 
 | Herramienta | Descripción |
