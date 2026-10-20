@@ -68,9 +68,7 @@ async function resolveSchema(
   tableName: string,
   preferredSchema?: string
 ): Promise<string | undefined> {
-  const schemas = preferredSchema
-    ? [preferredSchema, ...PREFERRED_SCHEMAS.filter((s) => s !== preferredSchema)]
-    : PREFERRED_SCHEMAS;
+  const schemas = preferredSchema ? [preferredSchema] : PREFERRED_SCHEMAS;
   try {
     const result = await db.query<{ table_schema: string }>(
       `SELECT table_schema
@@ -123,11 +121,29 @@ export async function simulateDdl(ddl: string, preferredSchema?: string): Promis
     await db.query("SET LOCAL lock_timeout = '3s'");
 
     const parsed = parseDdlTarget(ddl);
-    const schemaUsed = parsed?.tableName
-      ? await resolveSchema(db, parsed.tableName, preferredSchema)
-      : undefined;
-    if (schemaUsed) {
-      await db.query('SELECT set_config($1, $2, true)', ['search_path', `${schemaUsed}, public`]);
+    let schemaUsed: string | undefined;
+
+    if (preferredSchema) {
+      // Aislamiento estricto: la simulación solo puede tocar ESE esquema.
+      // Nunca caemos a otra base de datos aunque la tabla exista allí.
+      schemaUsed = preferredSchema;
+      if (parsed?.tableName) {
+        const exists = await resolveSchema(db, parsed.tableName, preferredSchema);
+        if (!exists) {
+          await db.query('ROLLBACK').catch(() => undefined);
+          return {
+            attempted: false,
+            ok: false,
+            message: `No se simula: la tabla "${parsed.tableName}" no existe en el esquema "${preferredSchema}" (se evita tocar otra base de datos).`,
+          };
+        }
+      }
+      await db.query('SELECT set_config($1, $2, true)', ['search_path', preferredSchema]);
+    } else {
+      schemaUsed = parsed?.tableName ? await resolveSchema(db, parsed.tableName) : undefined;
+      if (schemaUsed) {
+        await db.query('SELECT set_config($1, $2, true)', ['search_path', `${schemaUsed}, public`]);
+      }
     }
 
     try {

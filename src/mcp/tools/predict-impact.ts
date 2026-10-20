@@ -28,7 +28,12 @@ export const predictImpactTool: McpTool = {
         context?.targetSchema ?? (args.schema ? String(args.schema) : undefined);
       const schema = context?.schema ?? (await getFullSchema(targetSchema));
       const impact = predictImpact(schema, ddlStatement);
-      if (!impact.notFound) {
+      // Solo simulamos contra la base real si estamos en modo base real
+      // (sin esquema en memoria) o si hay un esquema remoto explícito (preset).
+      // Con un JSON propio (schema en memoria y sin preferredSchema) NO se
+      // simula, para no tocar por error otra base de datos.
+      const canSimulate = !context?.schema || Boolean(context?.preferredSchema);
+      if (!impact.notFound && canSimulate) {
         impact.simulation = await simulateDdl(ddlStatement, context?.preferredSchema);
       }
       return {

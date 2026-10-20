@@ -140,9 +140,10 @@ export default function HomePage(): JSX.Element {
       setChatSuggestions(preset.suggestions);
       setIsCustomSchema(false);
       setCustomSchemaName(null);
-      setCustomSchema(normalizeSchema(preset.schema) ?? preset.schema);
+      const normalized = normalizeSchema(preset.schema) ?? preset.schema;
+      setCustomSchema(normalized);
       setSchemaVersion((v) => v + 1);
-      setGraph(schemaToGraph(preset.schema));
+      setGraph(schemaToGraph(normalized));
       setImpact(null);
       setGraphMode('schema');
       try {
@@ -224,7 +225,9 @@ export default function HomePage(): JSX.Element {
   const activeDatabaseLabel = isCustomSchema
     ? customSchemaName || 'Base propia (JSON)'
     : (getPresetById(activePresetId)?.label ?? DATABASE_PRESETS[0].label);
-  const activeDbKey = isCustomSchema ? 'custom' : activePresetId;
+  const activeDbKey = isCustomSchema
+    ? `custom:${customSchemaName ?? 'base'}`
+    : activePresetId;
   const preferredSchema = isCustomSchema ? undefined : PRESET_SCHEMA[activePresetId];
 
   const pushHistory = useCallback(

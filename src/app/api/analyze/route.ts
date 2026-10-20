@@ -67,7 +67,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (ddlStatement) {
       impact = await predictBreakingChanges(ddlStatement, override);
-      if (!impact.notFound) {
+      const canSimulate = !override || Boolean(preferredSchema);
+      if (!impact.notFound && canSimulate) {
         impact.simulation = await simulateDdl(
           ddlStatement,
           typeof preferredSchema === 'string' ? preferredSchema : undefined
