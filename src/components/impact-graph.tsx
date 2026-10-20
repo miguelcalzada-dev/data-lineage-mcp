@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -162,6 +162,7 @@ export function ImpactGraph({ graph, loading = false, mode = 'impact' }: ImpactG
 function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphProps): JSX.Element {
   const { fitView } = useReactFlow();
   const isDark = useIsDark();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [hiddenSchemas, setHiddenSchemas] = useState<Set<string>>(new Set());
   const [groupBySchema, setGroupBySchema] = useState(false);
@@ -267,15 +268,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
     return map;
   }, [graph]);
 
-  const { nodes, edges } = useMemo(() => {
-    if (!hoveredId) return base;
-    const connected = connectivity.get(hoveredId) ?? new Set<string>();
-    const nodesWithDim = base.nodes.map((node) => {
-      const dimmed = node.id !== hoveredId && !connected.has(node.id);
-      return { ...node, data: { ...node.data, dimmed } };
-    });
-    return { ...base, nodes: nodesWithDim };
-  }, [base, hoveredId, connectivity]);
+  const { nodes, edges } = base;
 
   useEffect(() => {
     if (base.nodes.length === 0) return;
@@ -284,6 +277,21 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
     }, 80);
     return () => clearTimeout(timeout);
   }, [base.nodes, fitView]);
+
+  // Atenuación al pasar el ratón: se aplica directamente sobre el DOM para no
+  // reconstruir el array de `nodes` (eso hacía que React Flow re-midiera los
+  // nodos y el grafo "temblara").
+  useEffect(() => {
+    const root = wrapperRef.current;
+    if (!root) return;
+    const connected = hoveredId ? connectivity.get(hoveredId) : undefined;
+    root.querySelectorAll<HTMLElement>('.react-flow__node').forEach((el) => {
+      const id = el.getAttribute('data-id');
+      const isConnected = id !== null && (connected?.has(id) ?? false);
+      const dim = hoveredId !== null && id !== hoveredId && !isConnected;
+      el.style.opacity = dim ? '0.25' : '';
+    });
+  }, [hoveredId, connectivity, base.nodes]);
 
   function toggleType(type: string): void {
     setHiddenTypes((prev) => {
@@ -322,7 +330,7 @@ function GraphCanvas({ graph, loading = false, mode = 'impact' }: ImpactGraphPro
   }
 
   return (
-    <div className="h-full w-full">
+    <div ref={wrapperRef} className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}

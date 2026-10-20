@@ -23,6 +23,7 @@ body {
   padding: 0;
   box-shadow: none;
   outline: none;
+  transition: opacity 150ms ease;
 }
 
 .react-flow__node-custom {
